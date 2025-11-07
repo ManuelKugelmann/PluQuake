@@ -10,6 +10,9 @@ DO_USERDIRS=0
 ### Enable/Disable SDL2
 USE_SDL2=0
 
+### Enable/Disable PluQ IPC system
+USE_PLUQ=1
+
 ### Enable/Disable codecs for streaming music support
 USE_CODEC_WAVE=1
 USE_CODEC_FLAC=0
@@ -168,7 +171,16 @@ else
 COMMON_LIBS= -lGL -lm
 endif
 
-LIBS = $(COMMON_LIBS) $(NET_LIBS) $(CODECLIBS)
+# PluQ IPC libraries
+PLUQLIBS=
+PLUQOBJS=
+ifeq ($(USE_PLUQ),1)
+CFLAGS+= -DUSE_PLUQ -Igenerated
+PLUQLIBS= -lnng
+PLUQOBJS= pluq.o
+endif
+
+LIBS = $(COMMON_LIBS) $(NET_LIBS) $(CODECLIBS) $(PLUQLIBS)
 
 # ---------------------------
 # objects
@@ -241,7 +253,7 @@ OBJS = strlcat.o \
 	wad.o \
 	cmd.o \
 	common.o \
-	pluq.o \
+	$(PLUQOBJS) \
 	miniz.o \
 	crc.o \
 	cvar.o \

@@ -1,0 +1,124 @@
+// PluQ Protocol Schema
+// FlatBuffers schema for inter-process communication between Quake engines
+// Version: 1.0
+
+namespace PluQ;
+
+// 3D Vector
+struct Vec3 {
+  x:float;
+  y:float;
+  z:float;
+}
+
+// 3D Angles (pitch, yaw, roll)
+struct Angles {
+  pitch:float;
+  yaw:float;
+  roll:float;
+}
+
+// Entity representation
+table Entity {
+  origin:Vec3;              // Entity position
+  angles:Angles;            // Entity rotation
+  model_id:int;             // Model identifier
+  skin:int = 0;             // Skin variant
+  frame:int = 0;            // Animation frame
+  effects:int = 0;          // Visual effects flags
+  alpha:float = 1.0;        // Transparency (0.0 - 1.0)
+  scale:float = 1.0;        // Scale factor
+  colormod_r:float = 1.0;   // Color modulation R
+  colormod_g:float = 1.0;   // Color modulation G
+  colormod_b:float = 1.0;   // Color modulation B
+}
+
+// Dynamic light
+table DLight {
+  origin:Vec3;              // Light position
+  radius:float;             // Light radius
+  color_r:float = 1.0;      // Light color R
+  color_g:float = 1.0;      // Light color G
+  color_b:float = 1.0;      // Light color B
+  decay:float = 0.0;        // Decay rate
+  key:int;                  // Light identifier
+}
+
+// Player state
+table PlayerState {
+  origin:Vec3;              // Player position
+  angles:Angles;            // View angles
+  velocity:Vec3;            // Movement velocity
+  health:float = 100.0;     // Current health
+  armor:float = 0.0;        // Current armor
+  weapon:int = 0;           // Active weapon ID
+  ammo:int = 0;             // Current ammo
+  max_health:float = 100.0; // Maximum health
+  max_armor:float = 100.0;  // Maximum armor
+  flags:int = 0;            // Player flags (onground, inwater, etc.)
+}
+
+// Game state
+table GameState {
+  paused:bool = false;      // Game paused
+  in_game:bool = false;     // In active game (vs menu/console)
+  intermission:bool = false;// Intermission screen
+  mapname:string;           // Current map name
+  time:float = 0.0;         // Game time in seconds
+  gravity:float = 800.0;    // Gravity value
+  maxspeed:float = 320.0;   // Maximum player speed
+}
+
+// Input command (from frontend to backend)
+table InputCommand {
+  sequence:uint;            // Command sequence number
+  timestamp:double;         // Time command was generated
+
+  // Movement
+  forward_move:float = 0.0; // Forward/backward (-1.0 to 1.0)
+  side_move:float = 0.0;    // Strafe left/right (-1.0 to 1.0)
+  up_move:float = 0.0;      // Jump/crouch (-1.0 to 1.0)
+
+  // View
+  view_angles:Angles;       // Desired view angles
+
+  // Buttons (bitfield)
+  buttons:uint = 0;         // Button states
+  // Bit 0: Attack
+  // Bit 1: Jump
+  // Bit 2: Use
+  // Bit 3: Reload
+  // Bits 4-31: Reserved
+
+  // Impulse
+  impulse:ubyte = 0;        // Impulse command (weapon switch, etc.)
+
+  // Console command (optional)
+  cmd_text:string;          // Console command string
+}
+
+// Complete frame data
+table Frame {
+  // Frame metadata
+  sequence:uint;            // Frame sequence number
+  timestamp:double;         // Server time (in seconds)
+
+  // World state
+  player:PlayerState;       // Player state
+  game:GameState;           // Game state
+  entities:[Entity];        // All visible entities
+  dlights:[DLight];         // Dynamic lights
+
+  // Statistics
+  num_entities:ushort = 0;  // Number of entities
+  num_dlights:ushort = 0;   // Number of dynamic lights
+}
+
+// Root type
+root_type Frame;
+
+// File identifier for verification
+file_identifier "PLUQ";
+
+// File extension
+file_extension "pluq";
