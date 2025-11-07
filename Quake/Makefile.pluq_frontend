@@ -1,27 +1,33 @@
-# GNU Makefile for compiling x86-Windows quakespasm.exe using MinGW / MinGW-w64.
-# Usage: "make -f Makefile.w32"
-# To cross-compile on Linux hosts, see the build_cross_win32*.sh scripts.
-# "make DEBUG=1" to build a debug client.
-# "make SDL_CONFIG=/path/to/sdl-config" to override the locally included SDL versions.
-# "make WINSOCK2=1" to use WinSock2 api instead of the old WinSock 1.1.
+# GNU Makefile for Ironwail PluQ Frontend (Slim Client)
+# PluQ Frontend receives world state via PluQ and handles rendering/input only
+# You need the SDL library fully installed.
+# "make -f Makefile.pluq_frontend DEBUG=1" to build a debug frontend.
+# "make -f Makefile.pluq_frontend SDL_CONFIG=/path/to/sdl-config" for unusual SDL installations.
+# "make -f Makefile.pluq_frontend DO_USERDIRS=1" to enable user directories support
 
-### Enable/disable SDL2
-USE_SDL2=0
+# Enable/Disable user directories support
+DO_USERDIRS=1
 
-### Enable/disable codecs for streaming music support
+### Enable/Disable SDL2
+USE_SDL2=1
+
+### Disable Curl for frontend (not needed)
+USE_CURL=0
+
+### Enable/Disable codecs for streaming music support
 USE_CODEC_WAVE=1
-USE_CODEC_FLAC=1
+USE_CODEC_FLAC=0
 USE_CODEC_MP3=1
 USE_CODEC_VORBIS=1
-USE_CODEC_OPUS=1
+USE_CODEC_OPUS=0
 # either xmp or mikmod (or modplug)
 USE_CODEC_MIKMOD=0
-USE_CODEC_XMP=1
+USE_CODEC_XMP=0
 USE_CODEC_MODPLUG=0
-USE_CODEC_UMX=1
+USE_CODEC_UMX=0
 
 # which library to use for mp3 decoding: mad or mpg123
-MP3LIB=mad
+MP3LIB=mpg123
 # which library to use for ogg decoding: vorbis or tremor
 VORBISLIB=vorbis
 
@@ -33,24 +39,27 @@ check_gcc = $(shell if echo | $(CC) $(1) -Werror -S -o /dev/null -xc - > /dev/nu
 
 # ---------------------------
 
+HOST_OS = $(shell uname|sed -e s/_.*//|tr '[:upper:]' '[:lower:]')
+
 DEBUG ?= 0
-WINSOCK2 ?= 0
 
 # ---------------------------
 # build variables
 # ---------------------------
 
-CC = gcc
+CC ?= gcc
 LINKER = $(CC)
-WINDRES = windres
 
-STRIP = strip
+STRIP ?= strip
+PKG_CONFIG ?= pkg-config
 
 CPUFLAGS=
-LDFLAGS?= -m32 -mwindows -static-libgcc
+LDFLAGS?=
 DFLAGS ?=
-CFLAGS ?= -m32 -Wall -Wno-trigraphs -MMD
+CFLAGS ?= -Wall -Wno-trigraphs
+CFLAGS += -D_FILE_OFFSET_BITS=64
 CFLAGS += $(call check_gcc,-std=gnu11,)
+CFLAGS += $(call check_gcc,-Werror=format,)
 CFLAGS += $(CPUFLAGS)
 ifneq ($(DEBUG),0)
 DFLAGS += -DDEBUG
@@ -64,33 +73,36 @@ CFLAGS += $(call check_gcc,-fweb,)
 CFLAGS += $(call check_gcc,-frename-registers,)
 cmd_strip=$(STRIP) $(1)
 define do_strip
+	@echo Stripping $(1) && \
 	$(call cmd_strip,$(1));
 endef
+endif
+
+ifeq ($(DO_USERDIRS),1)
+CFLAGS += -DDO_USERDIRS=1
 endif
 
 ifeq ($(USE_SDL2),1)
 CFLAGS += -DUSE_SDL2
 endif
 
-# default to our local SDL[2] for build
 ifeq ($(USE_SDL2),1)
-SDL_CONFIG ?=../Windows/SDL2/bin/sdl2-config --prefix=../Windows/SDL2
+SDL_CONFIG ?= sdl2-config
 else
-SDL_CONFIG ?=../Windows/SDL/bin/sdl-config --prefix=../Windows/SDL
+SDL_CONFIG ?= sdl-config
 endif
 SDL_CFLAGS = $(shell $(SDL_CONFIG) --cflags)
 SDL_LIBS   = $(shell $(SDL_CONFIG) --libs)
 
-ifeq ($(WINSOCK2),1)
-DEFWINSOCK =-D_USE_WINSOCK2
-LIBWINSOCK = -lws2_32
-else
-DEFWINSOCK =
-LIBWINSOCK = -lwsock32
-endif
+NET_LIBS   =
+# PluQ Frontend doesn't use networking
 
-CFLAGS    += $(DEFWINSOCK)
-NET_LIBS   = $(LIBWINSOCK)
+ifeq ($(USE_CURL),1)
+NET_LIBS   += -lcurl
+CFLAGS     += $(shell $(PKG_CONFIG) --cflags libcurl)
+else
+CFLAGS     += -DWITHOUT_CURL
+endif
 
 ifneq ($(VORBISLIB),vorbis)
 ifneq ($(VORBISLIB),tremor)
@@ -125,54 +137,50 @@ CFLAGS+= -DUSE_CODEC_WAVE
 endif
 ifeq ($(USE_CODEC_FLAC),1)
 CFLAGS+= -DUSE_CODEC_FLAC
-CODEC_INC = -I../Windows/codecs/include
-CODEC_LINK= -L../Windows/codecs/x86
 CODECLIBS+= -lFLAC
 endif
 ifeq ($(USE_CODEC_OPUS),1)
+# opus and opusfile put their *.h under <includedir>/opus,
+# but they include the headers without the opus directory
+# prefix and rely on pkg-config. ewww...
 CFLAGS+= -DUSE_CODEC_OPUS
-CODEC_INC = -I../Windows/codecs/include
-CODEC_LINK= -L../Windows/codecs/x86
-CODECLIBS+= -lopusfile -lopus -logg
+CFLAGS+= $(shell $(PKG_CONFIG) --cflags opusfile)
+CODECLIBS+= $(shell $(PKG_CONFIG) --libs   opusfile)
 endif
 ifeq ($(USE_CODEC_VORBIS),1)
 CFLAGS+= -DUSE_CODEC_VORBIS $(cpp_vorbisdec)
-CODEC_INC = -I../Windows/codecs/include
-CODEC_LINK= -L../Windows/codecs/x86
 CODECLIBS+= $(lib_vorbisdec)
 endif
 ifeq ($(USE_CODEC_MP3),1)
 CFLAGS+= -DUSE_CODEC_MP3
-CODEC_INC = -I../Windows/codecs/include
-CODEC_LINK= -L../Windows/codecs/x86
 CODECLIBS+= $(lib_mp3dec)
 endif
 ifeq ($(USE_CODEC_MIKMOD),1)
 CFLAGS+= -DUSE_CODEC_MIKMOD
-CODEC_INC = -I../Windows/codecs/include
-CODEC_LINK= -L../Windows/codecs/x86
 CODECLIBS+= -lmikmod
 endif
 ifeq ($(USE_CODEC_XMP),1)
 CFLAGS+= -DUSE_CODEC_XMP
-CODEC_INC = -I../Windows/codecs/include
-CODEC_LINK= -L../Windows/codecs/x86
 CODECLIBS+= -lxmp
 endif
 ifeq ($(USE_CODEC_MODPLUG),1)
 CFLAGS+= -DUSE_CODEC_MODPLUG
-CODEC_INC = -I../Windows/codecs/include
-CODEC_LINK= -L../Windows/codecs/x86
 CODECLIBS+= -lmodplug
 endif
 ifeq ($(USE_CODEC_UMX),1)
 CFLAGS+= -DUSE_CODEC_UMX
 endif
-CFLAGS+= $(CODEC_INC)
 
-COMMON_LIBS= -lopengl32 -lwinmm
+ifeq ($(HOST_OS),haiku)
+COMMON_LIBS= -lGL -ldl
+else
+COMMON_LIBS= -lGL -ldl -lm
+endif
 
-LIBS = $(COMMON_LIBS) $(NET_LIBS) $(CODEC_LINK) $(CODECLIBS)
+LIBS = $(COMMON_LIBS) $(NET_LIBS) $(CODECLIBS)
+
+# name of this makefile, so we can use it as a dependency
+MAKEFILE := Makefile.pluq_frontend
 
 # ---------------------------
 # objects
@@ -192,13 +200,14 @@ MUSIC_OBJS= bgmusic.o \
 	snd_umx.o
 COMOBJ_SND = snd_dma.o snd_mix.o snd_mem.o $(MUSIC_OBJS)
 SYSOBJ_SND = snd_sdl.o
-SYSOBJ_CDA = cd_sdl.o
+SYSOBJ_CDA = cd_null.o
 SYSOBJ_INPUT = in_sdl.o
 SYSOBJ_GL_VID= gl_vidsdl.o
-SYSOBJ_NET = net_win.o net_wins.o net_wipx.o
-SYSOBJ_SYS = pl_win.o sys_sdl_win.o
-SYSOBJ_MAIN= main_sdl.o
-SYSOBJ_RES = QuakeSpasm.res
+# PluQ Frontend: No networking objects (net_bsd.o, net_udp.o)
+SYSOBJ_NET =
+SYSOBJ_SYS = pl_linux.o sys_sdl_unix.o
+# PluQ Frontend: Use frontend-specific main
+SYSOBJ_MAIN= main_pluq_frontend.o
 
 GLOBJS = \
 	gl_refrag.o \
@@ -209,6 +218,7 @@ GLOBJS = \
 	r_part.o \
 	r_world.o \
 	gl_screen.o \
+	gl_shaders.o \
 	gl_sky.o \
 	gl_warp.o \
 	$(SYSOBJ_GL_VID) \
@@ -221,6 +231,8 @@ GLOBJS = \
 	r_brush.o \
 	gl_model.o
 
+# PluQ Frontend-specific objects (slim client with maximum code reuse)
+# Excludes only: host_cmd.o (server commands), cl_parse.o (network parsing - PluQ handles this)
 OBJS = strlcat.o \
 	strlcpy.o \
 	$(GLOBJS) \
@@ -228,15 +240,10 @@ OBJS = strlcat.o \
 	$(COMOBJ_SND) \
 	$(SYSOBJ_SND) \
 	$(SYSOBJ_CDA) \
-	$(SYSOBJ_NET) \
-	net_dgrm.o \
-	net_loop.o \
-	net_main.o \
 	chase.o \
 	cl_demo.o \
 	cl_input.o \
 	cl_main.o \
-	cl_parse.o \
 	cl_tent.o \
 	console.o \
 	keys.o \
@@ -246,24 +253,28 @@ OBJS = strlcat.o \
 	wad.o \
 	cmd.o \
 	common.o \
+	steam.o \
 	pluq.o \
+	json.o \
 	miniz.o \
 	crc.o \
 	cvar.o \
 	cfgfile.o \
-	host.o \
-	host_cmd.o \
+	host_pluq_frontend.o \
 	mathlib.o \
-	pr_cmds.o \
-	pr_edict.o \
-	pr_exec.o \
-	sv_main.o \
-	sv_move.o \
-	sv_phys.o \
-	sv_user.o \
-	world.o \
 	zone.o \
+	stubs_pluq_frontend.o \
 	$(SYSOBJ_SYS) $(SYSOBJ_MAIN)
+
+# PluQ Frontend: Exclude these from backend:
+# - net_dgrm.o, net_loop.o, net_main.o (networking)
+# - pr_cmds.o, pr_edict.o, pr_exec.o (QuakeC VM)
+# - sv_main.o, sv_move.o, sv_phys.o, sv_user.o (server)
+# - world.o (world physics)
+# - host.o (use host_pluq_frontend.o instead)
+
+OBJDEPS := $(OBJS:%.o=%.d)
+OBJS += $(SYSOBJ_RES)
 
 # ---------------------------
 # targets / rules
@@ -271,23 +282,34 @@ OBJS = strlcat.o \
 
 .PHONY:	clean debug release
 
-DEFAULT_TARGET = quakespasm.exe
+DEFAULT_TARGET = ironwail-pluq-frontend
 all: $(DEFAULT_TARGET)
 
-%.o:	%.c
+%.d:	%.c $(MAKEFILE)
+	@echo "Generating dependencies for $<" && \
+	$(CC) $(DFLAGS) -c $(CFLAGS) $(SDL_CFLAGS) -MM $< -MF $@ -MT $@
+%.o:	%.c %.d $(MAKEFILE)
+	@echo "Compiling $<" && \
 	$(CC) $(DFLAGS) -c $(CFLAGS) $(SDL_CFLAGS) -o $@ $<
-%.res:	../Windows/%.rc
-	$(WINDRES) -I../Windows --output-format=coff --target=pe-i386 -o $@ $<
 
-quakespasm.exe: $(OBJS) $(SYSOBJ_RES)
-	$(LINKER) $(OBJS) $(SYSOBJ_RES) $(LDFLAGS) $(LIBS) $(SDL_LIBS) -o $@
+ironwail-pluq-frontend:	$(OBJS) $(MAKEFILE)
+	@echo "Linking $@" && \
+	$(LINKER) $(OBJS) $(LDFLAGS) $(LIBS) $(SDL_LIBS) -o $@
 	$(call do_strip,$@)
 
-release:	quakespasm.exe
+release:	ironwail-pluq-frontend
 debug:
-	$(error Use "make DEBUG=1")
+	$(error Use "make -f Makefile.pluq_frontend DEBUG=1")
 
-clean:
-	$(RM) *.o *.d *.res $(DEFAULT_TARGET)
+clean: $(MAKEFILE)
+	$(RM) *.o *.d $(DEFAULT_TARGET)
 
-sinclude $(OBJS:.o=.d)
+#---------------------------------------------------------------
+# include dependencies (if not running 'clean' target)
+#---------------------------------------------------------------
+
+ifneq ($(strip $(MAKECMDGOALS)),clean)
+ifneq ($(strip $(OBJDEPS)),)
+-include $(OBJDEPS)
+endif
+endif

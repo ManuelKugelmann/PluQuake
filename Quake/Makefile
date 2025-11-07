@@ -241,6 +241,7 @@ OBJS = strlcat.o \
 	wad.o \
 	cmd.o \
 	common.o \
+	pluq.o \
 	miniz.o \
 	crc.o \
 	cvar.o \
