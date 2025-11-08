@@ -723,6 +723,12 @@ void _Host_Frame (float time)
 // check for commands typed to the host
 	Host_GetConsoleCommands ();
 
+#ifdef USE_PLUQ
+	// PluQ: Process input commands from IPC frontend (backend receives input from frontend)
+	if (PluQ_IsBackend())
+		PluQ_ProcessInputCommands();
+#endif
+
 	if (sv.active)
 		Host_ServerFrame ();
 
@@ -739,15 +745,42 @@ void _Host_Frame (float time)
 
 // fetch results from server
 	if (cls.state == ca_connected)
-		CL_ReadFromServer ();
+	{
+#ifdef USE_PLUQ
+		// PluQ: Frontend mode receives state from backend via IPC
+		if (PluQ_IsFrontend())
+		{
+			if (PluQ_ReceiveWorldState())
+				PluQ_ApplyReceivedState();
+		}
+		else
+#endif
+		{
+			// Normal operation: read from local server/network
+			CL_ReadFromServer ();
+		}
+	}
+
+#ifdef USE_PLUQ
+	// PluQ: Backend mode broadcasts world state via IPC (purely additive)
+	if (PluQ_IsBackend())
+		PluQ_BroadcastWorldState();
+#endif
 
 // update video
 	if (host_speeds.value)
 		time1 = Sys_DoubleTime ();
 
-	SCR_UpdateScreen ();
+#ifdef USE_PLUQ
+	if (!PluQ_IsHeadless())
+	{
+#endif
+		SCR_UpdateScreen ();
 
-	CL_RunParticles (); //johnfitz -- seperated from rendering
+		CL_RunParticles (); //johnfitz -- seperated from rendering
+#ifdef USE_PLUQ
+	}
+#endif
 
 	if (host_speeds.value)
 		time2 = Sys_DoubleTime ();
@@ -885,6 +918,17 @@ void Host_Init (void)
 
 #ifdef USE_PLUQ
 	PluQ_Init (); // Initialize PluQ IPC system
+
+	// PluQ: Auto-enable backend mode when using -pluq
+	// Note: -pluq requires -headless to be used together
+	if (COM_CheckParm("-pluq"))
+	{
+		if (!COM_CheckParm("-headless"))
+			Sys_Error ("PluQ backend mode requires -headless flag");
+
+		Con_Printf ("PluQ backend mode enabled\n");
+		PluQ_Initialize (PLUQ_MODE_BACKEND);
+	}
 #endif
 
 	Hunk_AllocName (0, "-HOST_HUNKLEVEL-");
@@ -950,6 +994,10 @@ void Host_Shutdown(void)
 	}
 
 	LOG_Close ();
+
+#ifdef USE_PLUQ
+	PluQ_Shutdown (); // PluQ: Shutdown IPC subsystem
+#endif
 
 	LOC_Shutdown ();
 }

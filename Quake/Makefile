@@ -175,8 +175,8 @@ endif
 PLUQLIBS=
 PLUQOBJS=
 ifeq ($(USE_PLUQ),1)
-CFLAGS+= -DUSE_PLUQ -Igenerated
-PLUQLIBS= -lnng
+CFLAGS+= -DUSE_PLUQ
+PLUQLIBS= -Lnng_lib -lnng -lflatccrt -Wl,-rpath,nng_lib
 PLUQOBJS= pluq.o
 endif
 

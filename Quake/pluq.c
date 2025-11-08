@@ -1,680 +1,574 @@
 /*
-PluQ - Inter-Process Communication for Quake Engines
-C Implementation using NNG + FlatBuffers
+Copyright (C) 2024 QuakeSpasm/Ironwail developers
 
-MIT License - See LICENSE file
-Integrated into QuakeSpasm
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
 */
 
+// pluq.c -- PluQ IPC via nng + FlatBuffers
+
 #include "pluq.h"
-#include <stdlib.h>
 #include <string.h>
-#include <stdio.h>
-#include <time.h>
 
-#ifndef _WIN32
-#include <sys/time.h>
-#else
-#include <windows.h>
-#endif
-
-#include <nng/nng.h>
-#include <nng/protocol/pubsub0/pub.h>
-#include <nng/protocol/pubsub0/sub.h>
-
-// FlatCC runtime for C
-#include "flatcc/flatcc_builder.h"
-#include "generated/pluq_builder.h"
+// Console variables
+static cvar_t pluq_headless = {"pluq_headless", "0", CVAR_NONE};
 
 // Global state
-static struct {
-    pluq_config_t config;
-    nng_socket socket;
-    bool initialized;
-    pluq_stats_t stats;
-    char lastError[256];
+static qboolean pluq_initialized = false;
+static pluq_mode_t pluq_mode = PLUQ_MODE_DISABLED;
+static pluq_context_t pluq_ctx;
+static pluq_input_cmd_t current_input = {0};
+static qboolean has_current_input = false;
+static uint32_t last_received_frame = 0;
+static pluq_stats_t perf_stats = {0};
 
-    // Backend state
-    flatcc_builder_t builder;
+// ============================================================================
+// INITIALIZATION / SHUTDOWN
+// ============================================================================
 
-    // Frontend state
-    uint8_t *receivedData;
-    size_t receivedSize;
-    const PluQ_Frame_table_t receivedFrame;
-
-    // Timing
-    double startTime;
-} g_pluq = {0};
-
-// Helper: Get current time in seconds
-static double PluQ_GetTime(void)
+void PluQ_Init(void)
 {
-#ifndef _WIN32
-    struct timeval tv;
-    gettimeofday(&tv, NULL);
-    return tv.tv_sec + tv.tv_usec / 1000000.0;
-#else
-    LARGE_INTEGER freq, count;
-    QueryPerformanceFrequency(&freq);
-    QueryPerformanceCounter(&count);
-    return (double)count.QuadPart / (double)freq.QuadPart;
-#endif
+	int rv;
+
+	Cvar_RegisterVariable(&pluq_headless);
+
+	// Initialize nng library (required for nng 2.0 API)
+	if ((rv = nng_init(NULL)) != 0)
+	{
+		Sys_Error("PluQ: Failed to initialize nng library: %s", nng_strerror(rv));
+	}
+
+	Con_Printf("PluQ IPC system ready (nng 2.0 + FlatBuffers)\n");
 }
 
-// Helper: Set last error
-static void PluQ_SetError(const char *fmt, ...)
+qboolean PluQ_Initialize(pluq_mode_t mode)
 {
-    va_list args;
-    va_start(args, fmt);
-    vsnprintf(g_pluq.lastError, sizeof(g_pluq.lastError), fmt, args);
-    va_end(args);
+	int rv;
+
+	if (pluq_initialized && pluq_mode != PLUQ_MODE_DISABLED)
+	{
+		Con_Printf("PluQ already initialized in mode %d\n", pluq_mode);
+		return true;
+	}
+
+	if (mode == PLUQ_MODE_DISABLED)
+	{
+		Con_Printf("Cannot initialize PluQ in disabled mode\n");
+		return false;
+	}
+
+	Con_Printf("Initializing PluQ (nng+FlatBuffers) in mode: ");
+	switch (mode)
+	{
+		case PLUQ_MODE_BACKEND:   Con_Printf("BACKEND\n"); break;
+		case PLUQ_MODE_FRONTEND:  Con_Printf("FRONTEND\n"); break;
+		case PLUQ_MODE_BOTH:      Con_Printf("BOTH (same as BACKEND)\n"); break;
+		default:                  Con_Printf("UNKNOWN\n"); break;
+	}
+
+	memset(&pluq_ctx, 0, sizeof(pluq_ctx));
+	pluq_ctx.is_backend = (mode == PLUQ_MODE_BACKEND || mode == PLUQ_MODE_BOTH);
+	pluq_ctx.is_frontend = (mode == PLUQ_MODE_FRONTEND);
+
+	if (pluq_ctx.is_backend)
+	{
+		// Resources channel (REQ/REP)
+		if ((rv = nng_rep0_open(&pluq_ctx.resources_rep)) != 0)
+		{
+			Con_Printf("PluQ: Failed to create resources REP socket: %s\n", nng_strerror(rv));
+			goto error;
+		}
+		if ((rv = nng_listener_create(&pluq_ctx.resources_listener, pluq_ctx.resources_rep, PLUQ_URL_RESOURCES)) != 0)
+		{
+			Con_Printf("PluQ: Failed to create listener for %s: %s\n", PLUQ_URL_RESOURCES, nng_strerror(rv));
+			goto error;
+		}
+		if ((rv = nng_listener_start(pluq_ctx.resources_listener, 0)) != 0)
+		{
+			Con_Printf("PluQ: Failed to start listener on %s: %s\n", PLUQ_URL_RESOURCES, nng_strerror(rv));
+			goto error;
+		}
+
+		// Gameplay channel (PUB/SUB)
+		if ((rv = nng_pub0_open(&pluq_ctx.gameplay_pub)) != 0)
+		{
+			Con_Printf("PluQ: Failed to create gameplay PUB socket: %s\n", nng_strerror(rv));
+			goto error;
+		}
+		if ((rv = nng_listener_create(&pluq_ctx.gameplay_listener, pluq_ctx.gameplay_pub, PLUQ_URL_GAMEPLAY)) != 0)
+		{
+			Con_Printf("PluQ: Failed to create listener for %s: %s\n", PLUQ_URL_GAMEPLAY, nng_strerror(rv));
+			goto error;
+		}
+		if ((rv = nng_listener_start(pluq_ctx.gameplay_listener, 0)) != 0)
+		{
+			Con_Printf("PluQ: Failed to start listener on %s: %s\n", PLUQ_URL_GAMEPLAY, nng_strerror(rv));
+			goto error;
+		}
+
+		// Input channel (PUSH/PULL)
+		if ((rv = nng_pull0_open(&pluq_ctx.input_pull)) != 0)
+		{
+			Con_Printf("PluQ: Failed to create input PULL socket: %s\n", nng_strerror(rv));
+			goto error;
+		}
+		if ((rv = nng_listener_create(&pluq_ctx.input_listener, pluq_ctx.input_pull, PLUQ_URL_INPUT)) != 0)
+		{
+			Con_Printf("PluQ: Failed to create listener for %s: %s\n", PLUQ_URL_INPUT, nng_strerror(rv));
+			goto error;
+		}
+		if ((rv = nng_listener_start(pluq_ctx.input_listener, 0)) != 0)
+		{
+			Con_Printf("PluQ: Failed to start listener on %s: %s\n", PLUQ_URL_INPUT, nng_strerror(rv));
+			goto error;
+		}
+
+		Con_Printf("PluQ: Backend initialized successfully\n");
+	}
+	else
+	{
+		// Resources channel (REQ/REP)
+		if ((rv = nng_req0_open(&pluq_ctx.resources_req)) != 0)
+		{
+			Con_Printf("PluQ: Failed to create resources REQ socket: %s\n", nng_strerror(rv));
+			goto error;
+		}
+		if ((rv = nng_dialer_create(&pluq_ctx.resources_dialer, pluq_ctx.resources_req, PLUQ_URL_RESOURCES)) != 0)
+		{
+			Con_Printf("PluQ: Failed to create dialer for %s: %s\n", PLUQ_URL_RESOURCES, nng_strerror(rv));
+			goto error;
+		}
+		if ((rv = nng_dialer_start(pluq_ctx.resources_dialer, 0)) != 0)
+		{
+			Con_Printf("PluQ: Failed to start dialer for %s: %s\n", PLUQ_URL_RESOURCES, nng_strerror(rv));
+			goto error;
+		}
+
+		// Gameplay channel (PUB/SUB)
+		if ((rv = nng_sub0_open(&pluq_ctx.gameplay_sub)) != 0)
+		{
+			Con_Printf("PluQ: Failed to create gameplay SUB socket: %s\n", nng_strerror(rv));
+			goto error;
+		}
+		if ((rv = nng_sub0_socket_subscribe(pluq_ctx.gameplay_sub, "", 0)) != 0)
+		{
+			Con_Printf("PluQ: Failed to subscribe to gameplay events: %s\n", nng_strerror(rv));
+			goto error;
+		}
+		if ((rv = nng_dialer_create(&pluq_ctx.gameplay_dialer, pluq_ctx.gameplay_sub, PLUQ_URL_GAMEPLAY)) != 0)
+		{
+			Con_Printf("PluQ: Failed to create dialer for %s: %s\n", PLUQ_URL_GAMEPLAY, nng_strerror(rv));
+			goto error;
+		}
+		if ((rv = nng_dialer_start(pluq_ctx.gameplay_dialer, 0)) != 0)
+		{
+			Con_Printf("PluQ: Failed to start dialer for %s: %s\n", PLUQ_URL_GAMEPLAY, nng_strerror(rv));
+			goto error;
+		}
+
+		// Input channel (PUSH/PULL)
+		if ((rv = nng_push0_open(&pluq_ctx.input_push)) != 0)
+		{
+			Con_Printf("PluQ: Failed to create input PUSH socket: %s\n", nng_strerror(rv));
+			goto error;
+		}
+		if ((rv = nng_dialer_create(&pluq_ctx.input_dialer, pluq_ctx.input_push, PLUQ_URL_INPUT)) != 0)
+		{
+			Con_Printf("PluQ: Failed to create dialer for %s: %s\n", PLUQ_URL_INPUT, nng_strerror(rv));
+			goto error;
+		}
+		if ((rv = nng_dialer_start(pluq_ctx.input_dialer, 0)) != 0)
+		{
+			Con_Printf("PluQ: Failed to start dialer for %s: %s\n", PLUQ_URL_INPUT, nng_strerror(rv));
+			goto error;
+		}
+
+		Con_Printf("PluQ: Frontend initialized successfully\n");
+	}
+
+	pluq_ctx.initialized = true;
+	pluq_initialized = true;
+	pluq_mode = mode;
+	return true;
+
+error:
+	PluQ_Shutdown();
+	return false;
 }
 
-// Initialize PluQ
-bool PluQ_Initialize(const pluq_config_t *config)
-{
-    if (g_pluq.initialized) {
-        PluQ_SetError("Already initialized");
-        return false;
-    }
-
-    if (!config) {
-        PluQ_SetError("Invalid config");
-        return false;
-    }
-
-    g_pluq.config = *config;
-    g_pluq.startTime = PluQ_GetTime();
-
-    int rv;
-
-    // Create socket based on mode
-    if (config->mode == PLUQ_MODE_BACKEND) {
-        // Backend: Publisher
-        rv = nng_pub0_open(&g_pluq.socket);
-        if (rv != 0) {
-            PluQ_SetError("Failed to create publisher: %s", nng_strerror(rv));
-            return false;
-        }
-
-        // Listen on address
-        rv = nng_listen(g_pluq.socket, config->address, NULL, 0);
-        if (rv != 0) {
-            PluQ_SetError("Failed to listen on %s: %s", config->address, nng_strerror(rv));
-            nng_close(g_pluq.socket);
-            return false;
-        }
-
-        // Initialize FlatBuffers builder
-        flatcc_builder_init(&g_pluq.builder);
-
-    } else if (config->mode == PLUQ_MODE_FRONTEND) {
-        // Frontend: Subscriber
-        rv = nng_sub0_open(&g_pluq.socket);
-        if (rv != 0) {
-            PluQ_SetError("Failed to create subscriber: %s", nng_strerror(rv));
-            return false;
-        }
-
-        // Subscribe to all topics
-        rv = nng_socket_set(g_pluq.socket, NNG_OPT_SUB_SUBSCRIBE, "", 0);
-        if (rv != 0) {
-            PluQ_SetError("Failed to subscribe: %s", nng_strerror(rv));
-            nng_close(g_pluq.socket);
-            return false;
-        }
-
-        // Set non-blocking if requested
-        if (config->non_blocking) {
-            nng_duration timeout = 0;
-            nng_socket_set_ms(g_pluq.socket, NNG_OPT_RECVTIMEO, timeout);
-        } else if (config->timeout_ms >= 0) {
-            nng_socket_set_ms(g_pluq.socket, NNG_OPT_RECVTIMEO, config->timeout_ms);
-        }
-
-        // Connect to address
-        rv = nng_dial(g_pluq.socket, config->address, NULL, 0);
-        if (rv != 0) {
-            PluQ_SetError("Failed to connect to %s: %s", config->address, nng_strerror(rv));
-            nng_close(g_pluq.socket);
-            return false;
-        }
-
-    } else {
-        PluQ_SetError("Invalid mode");
-        return false;
-    }
-
-    g_pluq.initialized = true;
-    memset(&g_pluq.stats, 0, sizeof(g_pluq.stats));
-    g_pluq.stats.min_frame_time_ms = 999999.0;
-
-    return true;
-}
-
-// Shutdown PluQ
 void PluQ_Shutdown(void)
 {
-    if (!g_pluq.initialized)
-        return;
+	if (!pluq_initialized)
+		return;
 
-    if (g_pluq.config.mode == PLUQ_MODE_BACKEND) {
-        flatcc_builder_clear(&g_pluq.builder);
-    } else if (g_pluq.config.mode == PLUQ_MODE_FRONTEND) {
-        free(g_pluq.receivedData);
-        g_pluq.receivedData = NULL;
-    }
+	Con_Printf("PluQ: Shutting down\n");
 
-    nng_close(g_pluq.socket);
-    g_pluq.initialized = false;
+	if (pluq_ctx.is_backend)
+	{
+		nng_socket_close(pluq_ctx.resources_rep);
+		nng_socket_close(pluq_ctx.gameplay_pub);
+		nng_socket_close(pluq_ctx.input_pull);
+	}
+	else
+	{
+		nng_socket_close(pluq_ctx.resources_req);
+		nng_socket_close(pluq_ctx.gameplay_sub);
+		nng_socket_close(pluq_ctx.input_push);
+	}
+
+	memset(&pluq_ctx, 0, sizeof(pluq_ctx));
+	pluq_initialized = false;
+	pluq_mode = PLUQ_MODE_DISABLED;
 }
 
-bool PluQ_IsInitialized(void)
+// ============================================================================
+// MODE MANAGEMENT
+// ============================================================================
+
+pluq_mode_t PluQ_GetMode(void) { return pluq_mode; }
+qboolean PluQ_IsEnabled(void) { return pluq_initialized && pluq_mode != PLUQ_MODE_DISABLED; }
+qboolean PluQ_IsBackend(void) { return pluq_mode == PLUQ_MODE_BACKEND || pluq_mode == PLUQ_MODE_BOTH; }
+qboolean PluQ_IsFrontend(void) { return pluq_mode == PLUQ_MODE_FRONTEND; }
+qboolean PluQ_IsHeadless(void) { return (COM_CheckParm("-headless") != 0); }
+
+void PluQ_SetMode(pluq_mode_t mode)
 {
-    return g_pluq.initialized;
+	if (pluq_initialized && mode != pluq_mode)
+	{
+		PluQ_Shutdown();
+		PluQ_Initialize(mode);
+	}
+	else if (!pluq_initialized && mode != PLUQ_MODE_DISABLED)
+	{
+		PluQ_Initialize(mode);
+	}
 }
 
-pluq_mode_t PluQ_GetMode(void)
+// ============================================================================
+// TRANSPORT LAYER (nng + FlatBuffers)
+// ============================================================================
+
+qboolean PluQ_Backend_SendResource(const void *flatbuf, size_t size)
 {
-    return g_pluq.config.mode;
+	if (!pluq_ctx.initialized || !pluq_ctx.is_backend)
+		return false;
+
+	int rv = nng_send(pluq_ctx.resources_rep, (void *)flatbuf, size, 0);
+	if (rv != 0)
+	{
+		Con_Printf("PluQ: Failed to send resource: %s\n", nng_strerror(rv));
+		return false;
+	}
+	return true;
 }
 
-// === Backend Functions ===
-
-void PluQ_BeginFrame(uint32_t sequence, double timestamp)
+qboolean PluQ_Frontend_RequestResource(uint32_t resource_id)
 {
-    if (!g_pluq.initialized || g_pluq.config.mode != PLUQ_MODE_BACKEND)
-        return;
-
-    flatcc_builder_reset(&g_pluq.builder);
+	// TODO: Build ResourceRequest FlatBuffer and send
+	Con_Printf("PluQ: Requesting resource ID %u (not yet implemented)\n", resource_id);
+	return false;
 }
 
-void PluQ_SetPlayerState(
-    const vec3_t *origin, const angles_t *angles, const vec3_t *velocity,
-    float health, float armor, int weapon, int ammo, int flags)
+qboolean PluQ_Frontend_ReceiveResource(void **flatbuf_out, size_t *size_out)
 {
-    // Store in builder - will be used in EndFrame
-    // For simplicity, store in static variables
-    static struct {
-        vec3_t origin, velocity;
-        angles_t angles;
-        float health, armor;
-        int weapon, ammo, flags;
-    } player_data;
+	int rv;
+	nng_msg *msg;
 
-    // QuakeSpasm's vec3_t is an array, need to copy element by element
-    memcpy(player_data.origin, origin, sizeof(vec3_t));
-    memcpy(player_data.angles, angles, sizeof(vec3_t));
-    memcpy(player_data.velocity, velocity, sizeof(vec3_t));
-    player_data.health = health;
-    player_data.armor = armor;
-    player_data.weapon = weapon;
-    player_data.ammo = ammo;
-    player_data.flags = flags;
+	if (!pluq_ctx.initialized || !pluq_ctx.is_frontend)
+		return false;
+
+	if ((rv = nng_recvmsg(pluq_ctx.resources_req, &msg, NNG_FLAG_NONBLOCK)) != 0)
+	{
+		if (rv != NNG_EAGAIN)
+			Con_Printf("PluQ: Failed to receive resource: %s\n", nng_strerror(rv));
+		return false;
+	}
+
+	*flatbuf_out = nng_msg_body(msg);
+	*size_out = nng_msg_len(msg);
+	// Note: Caller must call nng_msg_free(msg) when done
+	return true;
 }
 
-void PluQ_SetGameState(
-    bool paused, bool in_game, bool intermission,
-    const char *mapname, float time, float gravity, float maxspeed)
+qboolean PluQ_Backend_PublishFrame(const void *flatbuf, size_t size)
 {
-    // Store in builder - will be used in EndFrame
-    static struct {
-        bool paused, in_game, intermission;
-        char mapname[64];
-        float time, gravity, maxspeed;
-    } game_data;
+	if (!pluq_ctx.initialized || !pluq_ctx.is_backend)
+		return false;
 
-    game_data.paused = paused;
-    game_data.in_game = in_game;
-    game_data.intermission = intermission;
-    strncpy(game_data.mapname, mapname, sizeof(game_data.mapname) - 1);
-    game_data.time = time;
-    game_data.gravity = gravity;
-    game_data.maxspeed = maxspeed;
+	int rv = nng_send(pluq_ctx.gameplay_pub, (void *)flatbuf, size, 0);
+	if (rv != 0)
+	{
+		Con_Printf("PluQ: Failed to publish gameplay frame: %s\n", nng_strerror(rv));
+		return false;
+	}
+	return true;
 }
 
-void PluQ_AddEntity(
-    const vec3_t *origin, const angles_t *angles,
-    int model_id, int skin, int frame, int effects, float alpha, float scale)
+qboolean PluQ_Frontend_ReceiveFrame(void **flatbuf_out, size_t *size_out)
 {
-    // Add to entities vector in builder
-    // Simplified - in real implementation, accumulate in dynamic array
+	int rv;
+	nng_msg *msg;
+
+	if (!pluq_ctx.initialized || !pluq_ctx.is_frontend)
+		return false;
+
+	if ((rv = nng_recvmsg(pluq_ctx.gameplay_sub, &msg, NNG_FLAG_NONBLOCK)) != 0)
+	{
+		if (rv != NNG_EAGAIN)
+			Con_Printf("PluQ: Failed to receive gameplay frame: %s\n", nng_strerror(rv));
+		return false;
+	}
+
+	*flatbuf_out = nng_msg_body(msg);
+	*size_out = nng_msg_len(msg);
+	// Note: Caller must call nng_msg_free(msg) when done
+	return true;
 }
 
-void PluQ_AddDLight(
-    const vec3_t *origin, float radius,
-    float color_r, float color_g, float color_b,
-    float decay, int key)
+qboolean PluQ_Frontend_SendInput(const void *flatbuf, size_t size)
 {
-    // Add to dlights vector in builder
-    // Simplified - in real implementation, accumulate in dynamic array
+	if (!pluq_ctx.initialized || !pluq_ctx.is_frontend)
+		return false;
+
+	int rv = nng_send(pluq_ctx.input_push, (void *)flatbuf, size, 0);
+	if (rv != 0)
+	{
+		Con_Printf("PluQ: Failed to send input command: %s\n", nng_strerror(rv));
+		return false;
+	}
+	return true;
 }
 
-int PluQ_EndFrame(void)
+qboolean PluQ_Backend_ReceiveInput(void **flatbuf_out, size_t *size_out)
 {
-    if (!g_pluq.initialized || g_pluq.config.mode != PLUQ_MODE_BACKEND)
-        return -1;
+	int rv;
+	nng_msg *msg;
 
-    double start = PluQ_GetTime();
+	if (!pluq_ctx.initialized || !pluq_ctx.is_backend)
+		return false;
 
-    // Finalize FlatBuffers message
-    // (Simplified - actual implementation would build complete frame)
-    void *buf;
-    size_t size;
-    buf = flatcc_builder_finalize_buffer(&g_pluq.builder, &size);
+	if ((rv = nng_recvmsg(pluq_ctx.input_pull, &msg, NNG_FLAG_NONBLOCK)) != 0)
+	{
+		if (rv != NNG_EAGAIN)
+			Con_Printf("PluQ: Failed to receive input command: %s\n", nng_strerror(rv));
+		return false;
+	}
 
-    if (!buf) {
-        PluQ_SetError("Failed to finalize buffer");
-        return -1;
-    }
-
-    // Send via NNG
-    int rv = nng_send(g_pluq.socket, buf, size, NNG_FLAG_ALLOC);
-    if (rv != 0) {
-        PluQ_SetError("Failed to send: %s", nng_strerror(rv));
-        free(buf);
-        return -1;
-    }
-
-    // Update statistics
-    double elapsed = (PluQ_GetTime() - start) * 1000.0; // ms
-    g_pluq.stats.frames_sent++;
-    g_pluq.stats.bytes_sent += size;
-    g_pluq.stats.avg_frame_time_ms =
-        (g_pluq.stats.avg_frame_time_ms * (g_pluq.stats.frames_sent - 1) + elapsed) /
-        g_pluq.stats.frames_sent;
-    if (elapsed > g_pluq.stats.max_frame_time_ms)
-        g_pluq.stats.max_frame_time_ms = elapsed;
-    if (elapsed < g_pluq.stats.min_frame_time_ms)
-        g_pluq.stats.min_frame_time_ms = elapsed;
-
-    return (int)size;
+	*flatbuf_out = nng_msg_body(msg);
+	*size_out = nng_msg_len(msg);
+	// Note: Caller must call nng_msg_free(msg) when done
+	return true;
 }
 
-// === Frontend Functions ===
+// ============================================================================
+// HIGH-LEVEL API (TODO: Implement using FlatBuffers)
+// ============================================================================
 
-bool PluQ_ReceiveFrame(void)
+void PluQ_BroadcastWorldState(void)
 {
-    if (!g_pluq.initialized || g_pluq.config.mode != PLUQ_MODE_FRONTEND)
-        return false;
+	static int debug_count = 0;
 
-    double start = PluQ_GetTime();
+	if (!pluq_initialized || !pluq_ctx.is_backend)
+	{
+		if (debug_count++ < 5)
+			Con_DPrintf("PluQ_BroadcastWorldState: not initialized or not backend\n");
+		return;
+	}
 
-    // Receive message
-    void *buf = NULL;
-    size_t size;
-    int rv = nng_recv(g_pluq.socket, &buf, &size, NNG_FLAG_ALLOC);
+	// Don't broadcast if not in game
+	if (!cl.worldmodel || cls.state != ca_connected)
+	{
+		if (debug_count++ < 5)
+			Con_DPrintf("PluQ_BroadcastWorldState: no worldmodel (%p) or not connected (state=%d)\n",
+				cl.worldmodel, cls.state);
+		return;
+	}
 
-    if (rv == NNG_ETIMEDOUT || rv == NNG_EAGAIN) {
-        return false; // No frame available
-    }
+	static uint32_t frame_counter = 0;
+	double start_time = Sys_DoubleTime();
 
-    if (rv != 0) {
-        PluQ_SetError("Failed to receive: %s", nng_strerror(rv));
-        return false;
-    }
+	// Debug: Log first few broadcasts
+	if (frame_counter < 5)
+		Con_Printf("PluQ: Broadcasting frame %u\n", frame_counter);
 
-    // Store received data
-    free(g_pluq.receivedData);
-    g_pluq.receivedData = buf;
-    g_pluq.receivedSize = size;
+	// Initialize FlatBuffers builder
+	flatcc_builder_t builder;
+	flatcc_builder_init(&builder);
 
-    // Parse FlatBuffers
-    g_pluq.receivedFrame = PluQ_Frame_as_root(buf);
+	// Build FrameUpdate
+	PluQ_FrameUpdate_start(&builder);
 
-    // Update statistics
-    double elapsed = (PluQ_GetTime() - start) * 1000.0; // ms
-    g_pluq.stats.frames_received++;
-    g_pluq.stats.bytes_received += size;
-    g_pluq.stats.avg_frame_time_ms =
-        (g_pluq.stats.avg_frame_time_ms * (g_pluq.stats.frames_received - 1) + elapsed) /
-        g_pluq.stats.frames_received;
-    if (elapsed > g_pluq.stats.max_frame_time_ms)
-        g_pluq.stats.max_frame_time_ms = elapsed;
-    if (elapsed < g_pluq.stats.min_frame_time_ms)
-        g_pluq.stats.min_frame_time_ms = elapsed;
+	// Frame info
+	PluQ_FrameUpdate_frame_number_add(&builder, frame_counter++);
+	PluQ_FrameUpdate_timestamp_add(&builder, cl.time);
 
-    return true;
+	// View state
+	PluQ_Vec3_t view_origin = QuakeVec3_To_FB(r_refdef.vieworg);
+	PluQ_Vec3_t view_angles = QuakeVec3_To_FB(cl.viewangles);
+	PluQ_FrameUpdate_view_origin_add(&builder, &view_origin);
+	PluQ_FrameUpdate_view_angles_add(&builder, &view_angles);
+
+	// Player stats
+	PluQ_FrameUpdate_health_add(&builder, (int16_t)cl.stats[STAT_HEALTH]);
+	PluQ_FrameUpdate_armor_add(&builder, (int16_t)cl.stats[STAT_ARMOR]);
+	PluQ_FrameUpdate_weapon_add(&builder, (uint8_t)cl.stats[STAT_WEAPON]);
+	PluQ_FrameUpdate_ammo_add(&builder, (uint16_t)cl.stats[STAT_AMMO]);
+
+	// Game state
+	PluQ_FrameUpdate_paused_add(&builder, (cl.paused != 0));
+	PluQ_FrameUpdate_in_game_add(&builder, true);
+
+	// TODO: Add entities (cl_visedicts)
+	// For now, just send player state
+
+	PluQ_FrameUpdate_ref_t frame_ref = PluQ_FrameUpdate_end(&builder);
+
+	// Wrap in GameplayMessage
+	PluQ_GameplayEvent_union_ref_t event;
+	event.type = PluQ_GameplayEvent_FrameUpdate;
+	event.value = frame_ref;
+
+	PluQ_GameplayMessage_create(&builder, event);
+	PluQ_GameplayMessage_end_as_root(&builder);
+
+	// Finalize buffer
+	size_t size;
+	void *buf = flatcc_builder_finalize_buffer(&builder, &size);
+
+	if (buf)
+	{
+		// Publish frame
+		PluQ_Backend_PublishFrame(buf, size);
+
+		// Update stats
+		perf_stats.frames_sent++;
+		double frame_time = Sys_DoubleTime() - start_time;
+		perf_stats.total_time += frame_time;
+		if (frame_time > perf_stats.max_frame_time)
+			perf_stats.max_frame_time = frame_time;
+		if (perf_stats.min_frame_time == 0.0 || frame_time < perf_stats.min_frame_time)
+			perf_stats.min_frame_time = frame_time;
+
+		// Free buffer
+		flatcc_builder_aligned_free(buf);
+	}
+
+	flatcc_builder_clear(&builder);
 }
 
-bool PluQ_GetFrameInfo(uint32_t *sequence, double *timestamp)
+qboolean PluQ_ReceiveWorldState(void)
 {
-    if (!g_pluq.receivedFrame)
-        return false;
+	void *buf;
+	size_t size;
 
-    if (sequence)
-        *sequence = PluQ_Frame_sequence(g_pluq.receivedFrame);
-    if (timestamp)
-        *timestamp = PluQ_Frame_timestamp(g_pluq.receivedFrame);
+	if (!PluQ_Frontend_ReceiveFrame(&buf, &size))
+		return false;
 
-    return true;
+	// Parse GameplayMessage
+	PluQ_GameplayMessage_table_t msg = PluQ_GameplayMessage_as_root(buf);
+	if (!msg)
+	{
+		nng_msg_free((nng_msg *)buf);  // Free the nng_msg wrapper
+		return false;
+	}
+
+	// Get event type and value
+	PluQ_GameplayEvent_union_type_t event_type = PluQ_GameplayMessage_event_type(msg);
+	flatbuffers_generic_t event_value = PluQ_GameplayMessage_event(msg);
+
+	if (event_type == PluQ_GameplayEvent_FrameUpdate)
+	{
+		PluQ_FrameUpdate_table_t frame = (PluQ_FrameUpdate_table_t)event_value;
+
+		// Update last received frame
+		last_received_frame = PluQ_FrameUpdate_frame_number(frame);
+
+		// TODO: Store frame data for PluQ_ApplyReceivedState()
+		// For now, just log
+		Con_DPrintf("PluQ: Received frame %u\n", last_received_frame);
+	}
+	else if (event_type == PluQ_GameplayEvent_MapChanged)
+	{
+		PluQ_MapChanged_table_t mapchange = (PluQ_MapChanged_table_t)event_value;
+		const char *mapname = PluQ_MapChanged_mapname(mapchange);
+		Con_Printf("PluQ: Map changed to %s\n", mapname);
+	}
+	else if (event_type == PluQ_GameplayEvent_Disconnected)
+	{
+		PluQ_Disconnected_table_t disc = (PluQ_Disconnected_table_t)event_value;
+		const char *reason = PluQ_Disconnected_reason(disc);
+		Con_Printf("PluQ: Disconnected: %s\n", reason);
+	}
+
+	nng_msg_free((nng_msg *)buf);
+	return true;
 }
 
-bool PluQ_GetPlayerState(
-    vec3_t *origin, angles_t *angles, vec3_t *velocity,
-    float *health, float *armor, int *weapon, int *ammo, int *flags)
+void PluQ_ApplyReceivedState(void)
 {
-    if (!g_pluq.receivedFrame)
-        return false;
-
-    PluQ_PlayerState_table_t player = PluQ_Frame_player(g_pluq.receivedFrame);
-    if (!player)
-        return false;
-
-    if (origin) {
-        PluQ_Vec3_struct_t o = PluQ_PlayerState_origin(player);
-        origin->x = PluQ_Vec3_x(o);
-        origin->y = PluQ_Vec3_y(o);
-        origin->z = PluQ_Vec3_z(o);
-    }
-
-    if (angles) {
-        PluQ_Angles_struct_t a = PluQ_PlayerState_angles(player);
-        angles->pitch = PluQ_Angles_pitch(a);
-        angles->yaw = PluQ_Angles_yaw(a);
-        angles->roll = PluQ_Angles_roll(a);
-    }
-
-    if (velocity) {
-        PluQ_Vec3_struct_t v = PluQ_PlayerState_velocity(player);
-        velocity->x = PluQ_Vec3_x(v);
-        velocity->y = PluQ_Vec3_y(v);
-        velocity->z = PluQ_Vec3_z(v);
-    }
-
-    if (health) *health = PluQ_PlayerState_health(player);
-    if (armor) *armor = PluQ_PlayerState_armor(player);
-    if (weapon) *weapon = PluQ_PlayerState_weapon(player);
-    if (ammo) *ammo = PluQ_PlayerState_ammo(player);
-    if (flags) *flags = PluQ_PlayerState_flags(player);
-
-    return true;
+	// TODO: Apply received state to local game
 }
 
-bool PluQ_GetGameState(
-    bool *paused, bool *in_game, bool *intermission,
-    char *mapname, size_t mapname_size,
-    float *time, float *gravity, float *maxspeed)
+qboolean PluQ_HasPendingInput(void)
 {
-    if (!g_pluq.receivedFrame)
-        return false;
+	if (!PluQ_IsBackend() || !pluq_initialized)
+		return false;
 
-    PluQ_GameState_table_t game = PluQ_Frame_game(g_pluq.receivedFrame);
-    if (!game)
-        return false;
-
-    if (paused) *paused = PluQ_GameState_paused(game);
-    if (in_game) *in_game = PluQ_GameState_in_game(game);
-    if (intermission) *intermission = PluQ_GameState_intermission(game);
-
-    if (mapname) {
-        flatbuffers_string_t name = PluQ_GameState_mapname(game);
-        if (name) {
-            strncpy(mapname, name, mapname_size - 1);
-            mapname[mapname_size - 1] = '\0';
-        }
-    }
-
-    if (time) *time = PluQ_GameState_time(game);
-    if (gravity) *gravity = PluQ_GameState_gravity(game);
-    if (maxspeed) *maxspeed = PluQ_GameState_maxspeed(game);
-
-    return true;
+	nng_msg *msg;
+	int rv = nng_recvmsg(pluq_ctx.input_pull, &msg, NNG_FLAG_NONBLOCK);
+	if (rv == 0)
+	{
+		// TODO: Parse InputCommand FlatBuffer
+		nng_msg_free(msg);
+	}
+	return false;
 }
 
-int PluQ_GetEntityCount(void)
+void PluQ_ProcessInputCommands(void)
 {
-    if (!g_pluq.receivedFrame)
-        return 0;
+	void *buf;
+	size_t size;
 
-    PluQ_Entity_vec_t entities = PluQ_Frame_entities(g_pluq.receivedFrame);
-    if (!entities)
-        return 0;
+	if (!PluQ_IsBackend() || !pluq_initialized)
+		return;
 
-    return (int)PluQ_Entity_vec_len(entities);
+	// Process all pending input commands
+	while (PluQ_Backend_ReceiveInput(&buf, &size))
+	{
+		// Parse FlatBuffer
+		PluQ_InputCommand_table_t cmd = PluQ_InputCommand_as_root(buf);
+		if (!cmd)
+		{
+			Con_Printf("PluQ: Failed to parse InputCommand\n");
+			nng_msg_free((nng_msg *)buf);
+			continue;
+		}
+
+		// Get command text
+		const char *cmd_text = PluQ_InputCommand_cmd_text(cmd);
+		if (cmd_text && cmd_text[0])
+		{
+			Con_Printf("PluQ: Received command: \"%s\"\n", cmd_text);
+			Cbuf_AddText(cmd_text);
+			Cbuf_AddText("\n");
+		}
+
+		nng_msg_free((nng_msg *)buf);
+	}
 }
 
-bool PluQ_GetEntity(
-    int index, vec3_t *origin, angles_t *angles,
-    int *model_id, int *skin, int *frame,
-    int *effects, float *alpha, float *scale)
-{
-    if (!g_pluq.receivedFrame)
-        return false;
-
-    PluQ_Entity_vec_t entities = PluQ_Frame_entities(g_pluq.receivedFrame);
-    if (!entities || index < 0 || index >= PluQ_Entity_vec_len(entities))
-        return false;
-
-    PluQ_Entity_table_t entity = PluQ_Entity_vec_at(entities, index);
-
-    if (origin) {
-        PluQ_Vec3_struct_t o = PluQ_Entity_origin(entity);
-        origin->x = PluQ_Vec3_x(o);
-        origin->y = PluQ_Vec3_y(o);
-        origin->z = PluQ_Vec3_z(o);
-    }
-
-    if (angles) {
-        PluQ_Angles_struct_t a = PluQ_Entity_angles(entity);
-        angles->pitch = PluQ_Angles_pitch(a);
-        angles->yaw = PluQ_Angles_yaw(a);
-        angles->roll = PluQ_Angles_roll(a);
-    }
-
-    if (model_id) *model_id = PluQ_Entity_model_id(entity);
-    if (skin) *skin = PluQ_Entity_skin(entity);
-    if (frame) *frame = PluQ_Entity_frame(entity);
-    if (effects) *effects = PluQ_Entity_effects(entity);
-    if (alpha) *alpha = PluQ_Entity_alpha(entity);
-    if (scale) *scale = PluQ_Entity_scale(entity);
-
-    return true;
-}
-
-int PluQ_GetDLightCount(void)
-{
-    if (!g_pluq.receivedFrame)
-        return 0;
-
-    PluQ_DLight_vec_t dlights = PluQ_Frame_dlights(g_pluq.receivedFrame);
-    if (!dlights)
-        return 0;
-
-    return (int)PluQ_DLight_vec_len(dlights);
-}
-
-bool PluQ_GetDLight(
-    int index, vec3_t *origin, float *radius,
-    float *color_r, float *color_g, float *color_b,
-    float *decay, int *key)
-{
-    if (!g_pluq.receivedFrame)
-        return false;
-
-    PluQ_DLight_vec_t dlights = PluQ_Frame_dlights(g_pluq.receivedFrame);
-    if (!dlights || index < 0 || index >= PluQ_DLight_vec_len(dlights))
-        return false;
-
-    PluQ_DLight_table_t dlight = PluQ_DLight_vec_at(dlights, index);
-
-    if (origin) {
-        PluQ_Vec3_struct_t o = PluQ_DLight_origin(dlight);
-        origin->x = PluQ_Vec3_x(o);
-        origin->y = PluQ_Vec3_y(o);
-        origin->z = PluQ_Vec3_z(o);
-    }
-
-    if (radius) *radius = PluQ_DLight_radius(dlight);
-    if (color_r) *color_r = PluQ_DLight_color_r(dlight);
-    if (color_g) *color_g = PluQ_DLight_color_g(dlight);
-    if (color_b) *color_b = PluQ_DLight_color_b(dlight);
-    if (decay) *decay = PluQ_DLight_decay(dlight);
-    if (key) *key = PluQ_DLight_key(dlight);
-
-    return true;
-}
-
-// === Input Functions ===
-
-bool PluQ_SendInput(
-    uint32_t sequence, double timestamp,
-    float forward_move, float side_move, float up_move,
-    const angles_t *view_angles,
-    uint32_t buttons, uint8_t impulse, const char *cmd_text)
-{
-    // TODO: Implement input sending (requires separate NNG socket or request/reply pattern)
-    return false;
-}
-
-bool PluQ_ReceiveInput(
-    uint32_t *sequence, double *timestamp,
-    float *forward_move, float *side_move, float *up_move,
-    angles_t *view_angles,
-    uint32_t *buttons, uint8_t *impulse,
-    char *cmd_text, size_t cmd_text_size)
-{
-    // TODO: Implement input receiving
-    return false;
-}
-
-// === Statistics ===
+void PluQ_SendInput(usercmd_t *cmd) { /* TODO */ }
+void PluQ_Move(usercmd_t *cmd) { /* TODO */ }
+void PluQ_ApplyViewAngles(void) { /* TODO */ }
 
 void PluQ_GetStats(pluq_stats_t *stats)
 {
-    if (stats)
-        *stats = g_pluq.stats;
+	if (stats) *stats = perf_stats;
 }
 
 void PluQ_ResetStats(void)
 {
-    memset(&g_pluq.stats, 0, sizeof(g_pluq.stats));
-    g_pluq.stats.min_frame_time_ms = 999999.0;
-}
-
-const char *PluQ_GetLastError(void)
-{
-    return g_pluq.lastError;
-}
-
-// === QuakeSpasm Integration ===
-
-static cvar_t pluq_enable = {"pluq_enable", "0", CVAR_ARCHIVE};
-static cvar_t pluq_mode = {"pluq_mode", "backend", CVAR_ARCHIVE};  // backend, frontend, disabled
-static cvar_t pluq_transport = {"pluq_transport", "tcp", CVAR_ARCHIVE};  // tcp, ipc, ws
-static cvar_t pluq_address = {"pluq_address", "tcp://0.0.0.0:5555", CVAR_ARCHIVE};
-
-/**
- * Console command: pluq_init
- * Initialize PluQ with current cvar settings
- */
-static void PluQ_Init_f(void)
-{
-    if (!pluq_enable.value) {
-        Con_Printf("PluQ is disabled. Set pluq_enable 1 to enable.\n");
-        return;
-    }
-
-    // Parse mode
-    pluq_mode_t mode = PLUQ_MODE_DISABLED;
-    if (strcmp(pluq_mode.string, "backend") == 0) {
-        mode = PLUQ_MODE_BACKEND;
-    } else if (strcmp(pluq_mode.string, "frontend") == 0) {
-        mode = PLUQ_MODE_FRONTEND;
-    } else {
-        Con_Printf("Invalid pluq_mode: %s (use 'backend' or 'frontend')\n", pluq_mode.string);
-        return;
-    }
-
-    // Parse transport
-    pluq_transport_t transport = PLUQ_TRANSPORT_TCP;
-    if (strcmp(pluq_transport.string, "tcp") == 0) {
-        transport = PLUQ_TRANSPORT_TCP;
-    } else if (strcmp(pluq_transport.string, "ipc") == 0) {
-        transport = PLUQ_TRANSPORT_IPC;
-    } else if (strcmp(pluq_transport.string, "ws") == 0 || strcmp(pluq_transport.string, "websocket") == 0) {
-        transport = PLUQ_TRANSPORT_WEBSOCKET;
-    } else {
-        Con_Printf("Invalid pluq_transport: %s (use 'tcp', 'ipc', or 'ws')\n", pluq_transport.string);
-        return;
-    }
-
-    // Initialize
-    pluq_config_t config = {
-        .mode = mode,
-        .transport = transport,
-        .address = pluq_address.string,
-        .non_blocking = true,
-        .timeout_ms = 0
-    };
-
-    if (PluQ_Initialize(&config)) {
-        Con_Printf("PluQ initialized: mode=%s transport=%s address=%s\n",
-                   pluq_mode.string, pluq_transport.string, pluq_address.string);
-    } else {
-        Con_Printf("PluQ initialization failed: %s\n", PluQ_GetLastError());
-    }
-}
-
-/**
- * Console command: pluq_shutdown
- * Shutdown PluQ
- */
-static void PluQ_Shutdown_f(void)
-{
-    PluQ_Shutdown();
-    Con_Printf("PluQ shutdown\n");
-}
-
-/**
- * Console command: pluq_stats
- * Show PluQ statistics
- */
-static void PluQ_Stats_f(void)
-{
-    if (!PluQ_IsInitialized()) {
-        Con_Printf("PluQ is not initialized\n");
-        return;
-    }
-
-    pluq_stats_t stats;
-    PluQ_GetStats(&stats);
-
-    if (g_pluq.config.mode == PLUQ_MODE_BACKEND) {
-        Con_Printf("PluQ Backend Statistics:\n");
-        Con_Printf("  Frames sent: %llu\n", (unsigned long long)stats.frames_sent);
-        Con_Printf("  Bytes sent: %llu (%.2f MB)\n",
-                   (unsigned long long)stats.bytes_sent,
-                   stats.bytes_sent / (1024.0 * 1024.0));
-    } else {
-        Con_Printf("PluQ Frontend Statistics:\n");
-        Con_Printf("  Frames received: %llu\n", (unsigned long long)stats.frames_received);
-        Con_Printf("  Bytes received: %llu (%.2f MB)\n",
-                   (unsigned long long)stats.bytes_received,
-                   stats.bytes_received / (1024.0 * 1024.0));
-    }
-
-    Con_Printf("  Avg frame time: %.2f ms\n", stats.avg_frame_time_ms);
-    Con_Printf("  Min frame time: %.2f ms\n", stats.min_frame_time_ms);
-    Con_Printf("  Max frame time: %.2f ms\n", stats.max_frame_time_ms);
-}
-
-/**
- * Initialize PluQ subsystem (called from Host_Init)
- * Registers console commands and cvars
- */
-void PluQ_Init(void)
-{
-    Cvar_RegisterVariable(&pluq_enable);
-    Cvar_RegisterVariable(&pluq_mode);
-    Cvar_RegisterVariable(&pluq_transport);
-    Cvar_RegisterVariable(&pluq_address);
-
-    Cmd_AddCommand("pluq_init", PluQ_Init_f);
-    Cmd_AddCommand("pluq_shutdown", PluQ_Shutdown_f);
-    Cmd_AddCommand("pluq_stats", PluQ_Stats_f);
-
-    Con_Printf("PluQ IPC system initialized\n");
-    Con_Printf("Use 'pluq_init' to start broadcasting/receiving\n");
-    Con_Printf("Cvars: pluq_enable, pluq_mode, pluq_transport, pluq_address\n");
+	memset(&perf_stats, 0, sizeof(perf_stats));
 }

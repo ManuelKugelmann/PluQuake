@@ -1,273 +1,127 @@
 /*
-PluQ - Inter-Process Communication for Quake Engines
-C Implementation using NNG + FlatBuffers
+Copyright (C) 2024 QuakeSpasm/Ironwail developers
 
-MIT License - See LICENSE file
-
-Integrated into QuakeSpasm
+This program is free software; you can redistribute it and/or
+modify it under the terms of the GNU General Public License
+as published by the Free Software Foundation; either version 2
+of the License, or (at your option) any later version.
 */
 
-#ifndef PLUQ_NNG_H
-#define PLUQ_NNG_H
+#ifndef _PLUQ_H_
+#define _PLUQ_H_
 
-#include <stdint.h>
-#include <stdbool.h>
+// pluq.h -- PluQ Inter-Process Communication via nng + FlatBuffers
+// Three-channel architecture: Resources, Gameplay, Input
 
-// Use QuakeSpasm's vector types
-#define PLUQ_CUSTOM_TYPES
 #include "quakedef.h"
+#include <nng/nng.h>
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+// Include generated FlatBuffers C headers
+#include "pluq_reader.h"
+#include "pluq_builder.h"
 
-// QuakeSpasm uses vec3_t for angles too (pitch, yaw, roll)
-typedef vec3_t angles_t;
+// ============================================================================
+// CHANNEL ENDPOINTS
+// ============================================================================
 
-// PluQ operation modes
-typedef enum {
-    PLUQ_MODE_DISABLED,   // PluQ not active
-    PLUQ_MODE_BACKEND,    // Backend: run simulation, broadcast state
-    PLUQ_MODE_FRONTEND,   // Frontend: receive state, send input
+#define PLUQ_URL_RESOURCES  "tcp://127.0.0.1:9001"
+#define PLUQ_URL_GAMEPLAY   "tcp://127.0.0.1:9002"
+#define PLUQ_URL_INPUT      "tcp://127.0.0.1:9003"
+
+// ============================================================================
+// PLUQ OPERATION MODES
+// ============================================================================
+
+typedef enum
+{
+	PLUQ_MODE_DISABLED,
+	PLUQ_MODE_BACKEND,
+	PLUQ_MODE_FRONTEND,
+	PLUQ_MODE_BOTH
 } pluq_mode_t;
 
-// Transport types
-typedef enum {
-    PLUQ_TRANSPORT_IPC,       // Local IPC (fastest)
-    PLUQ_TRANSPORT_TCP,       // Network TCP
-    PLUQ_TRANSPORT_WEBSOCKET, // WebSocket (for browsers)
-    PLUQ_TRANSPORT_INPROC,    // In-process (same process, different threads)
-} pluq_transport_t;
+// ============================================================================
+// NNG CONTEXT
+// ============================================================================
+
+typedef struct {
+	nng_socket resources_rep, resources_req;
+	nng_socket gameplay_pub, gameplay_sub;
+	nng_socket input_pull, input_push;
+	nng_listener resources_listener, gameplay_listener, input_listener;
+	nng_dialer resources_dialer, gameplay_dialer, input_dialer;
+	qboolean is_backend, is_frontend, initialized;
+} pluq_context_t;
+
+// Input command structure
+typedef struct
+{
+	uint32_t sequence;
+	double timestamp;
+	float forward_move, side_move, up_move;
+	vec3_t view_angles;
+	uint32_t buttons;
+	uint8_t impulse;
+	char cmd_text[256];
+} pluq_input_cmd_t;
 
 // Performance statistics
-typedef struct {
-    uint64_t frames_sent;      // Total frames sent (backend)
-    uint64_t frames_received;  // Total frames received (frontend)
-    uint64_t bytes_sent;       // Total bytes sent
-    uint64_t bytes_received;   // Total bytes received
-    double avg_frame_time_ms;  // Average frame processing time
-    double max_frame_time_ms;  // Maximum frame processing time
-    double min_frame_time_ms;  // Minimum frame processing time
+typedef struct
+{
+	uint64_t frames_sent;
+	double total_time;
+	size_t total_entities;
+	double max_frame_time, min_frame_time;
 } pluq_stats_t;
 
-// Configuration
-typedef struct {
-    pluq_mode_t mode;
-    pluq_transport_t transport;
-    const char *address;       // e.g., "tcp://0.0.0.0:5555", "ipc:///tmp/pluq"
-    bool non_blocking;         // Non-blocking receive
-    int timeout_ms;            // Timeout for blocking operations (-1 = infinite)
-} pluq_config_t;
+// ============================================================================
+// PUBLIC API
+// ============================================================================
 
-// Forward declarations for engine-specific types
-// These will be defined by the integrating engine (QuakeSpasm, Ironwail, etc.)
-#ifndef PLUQ_CUSTOM_TYPES
-typedef struct { float x, y, z; } vec3_t;
-typedef struct { float pitch, yaw, roll; } angles_t;
-#endif
-
-// === Initialization and Cleanup ===
-
-/**
- * Initialize PluQ with configuration
- * Returns: true on success, false on failure
- */
-bool PluQ_Initialize(const pluq_config_t *config);
-
-/**
- * Shutdown PluQ and cleanup resources
- */
+void PluQ_Init(void);
+qboolean PluQ_Initialize(pluq_mode_t mode);
 void PluQ_Shutdown(void);
 
-/**
- * Check if PluQ is initialized
- */
-bool PluQ_IsInitialized(void);
-
-/**
- * Get current mode
- */
 pluq_mode_t PluQ_GetMode(void);
+void PluQ_SetMode(pluq_mode_t mode);
+qboolean PluQ_IsEnabled(void);
+qboolean PluQ_IsBackend(void);
+qboolean PluQ_IsFrontend(void);
+qboolean PluQ_IsHeadless(void);
 
-// === Backend Functions (Broadcasting) ===
+void PluQ_BroadcastWorldState(void);
+qboolean PluQ_ReceiveWorldState(void);
+void PluQ_ApplyReceivedState(void);
 
-/**
- * Start building a frame
- * Call this before adding entities/lights
- */
-void PluQ_BeginFrame(uint32_t sequence, double timestamp);
+qboolean PluQ_HasPendingInput(void);
+void PluQ_ProcessInputCommands(void);
+void PluQ_SendInput(usercmd_t *cmd);
+void PluQ_Move(usercmd_t *cmd);
+void PluQ_ApplyViewAngles(void);
 
-/**
- * Set player state for current frame
- */
-void PluQ_SetPlayerState(
-    const vec3_t *origin,
-    const angles_t *angles,
-    const vec3_t *velocity,
-    float health, float armor,
-    int weapon, int ammo,
-    int flags
-);
-
-/**
- * Set game state for current frame
- */
-void PluQ_SetGameState(
-    bool paused, bool in_game, bool intermission,
-    const char *mapname,
-    float time, float gravity, float maxspeed
-);
-
-/**
- * Add an entity to the current frame
- */
-void PluQ_AddEntity(
-    const vec3_t *origin,
-    const angles_t *angles,
-    int model_id, int skin, int frame,
-    int effects, float alpha, float scale
-);
-
-/**
- * Add a dynamic light to the current frame
- */
-void PluQ_AddDLight(
-    const vec3_t *origin,
-    float radius,
-    float color_r, float color_g, float color_b,
-    float decay, int key
-);
-
-/**
- * Finish building and broadcast the frame
- * Returns: number of bytes sent, or -1 on error
- */
-int PluQ_EndFrame(void);
-
-// === Frontend Functions (Receiving) ===
-
-/**
- * Receive a frame (blocking or non-blocking depending on config)
- * Returns: true if frame received, false otherwise
- */
-bool PluQ_ReceiveFrame(void);
-
-/**
- * Get frame metadata
- */
-bool PluQ_GetFrameInfo(uint32_t *sequence, double *timestamp);
-
-/**
- * Get player state from received frame
- */
-bool PluQ_GetPlayerState(
-    vec3_t *origin,
-    angles_t *angles,
-    vec3_t *velocity,
-    float *health, float *armor,
-    int *weapon, int *ammo,
-    int *flags
-);
-
-/**
- * Get game state from received frame
- */
-bool PluQ_GetGameState(
-    bool *paused, bool *in_game, bool *intermission,
-    char *mapname, size_t mapname_size,
-    float *time, float *gravity, float *maxspeed
-);
-
-/**
- * Get number of entities in received frame
- */
-int PluQ_GetEntityCount(void);
-
-/**
- * Get entity data by index
- */
-bool PluQ_GetEntity(
-    int index,
-    vec3_t *origin,
-    angles_t *angles,
-    int *model_id, int *skin, int *frame,
-    int *effects, float *alpha, float *scale
-);
-
-/**
- * Get number of dynamic lights in received frame
- */
-int PluQ_GetDLightCount(void);
-
-/**
- * Get dynamic light data by index
- */
-bool PluQ_GetDLight(
-    int index,
-    vec3_t *origin,
-    float *radius,
-    float *color_r, float *color_g, float *color_b,
-    float *decay, int *key
-);
-
-// === Input Functions (Frontend -> Backend) ===
-
-/**
- * Send input command to backend
- */
-bool PluQ_SendInput(
-    uint32_t sequence,
-    double timestamp,
-    float forward_move, float side_move, float up_move,
-    const angles_t *view_angles,
-    uint32_t buttons,
-    uint8_t impulse,
-    const char *cmd_text
-);
-
-/**
- * Receive input command (backend)
- * Returns: true if input received
- */
-bool PluQ_ReceiveInput(
-    uint32_t *sequence,
-    double *timestamp,
-    float *forward_move, float *side_move, float *up_move,
-    angles_t *view_angles,
-    uint32_t *buttons,
-    uint8_t *impulse,
-    char *cmd_text, size_t cmd_text_size
-);
-
-// === Statistics ===
-
-/**
- * Get performance statistics
- */
 void PluQ_GetStats(pluq_stats_t *stats);
-
-/**
- * Reset statistics
- */
 void PluQ_ResetStats(void);
 
-// === Utility ===
+// Transport layer
+qboolean PluQ_Backend_SendResource(const void *flatbuf, size_t size);
+qboolean PluQ_Frontend_RequestResource(uint32_t resource_id);
+qboolean PluQ_Frontend_ReceiveResource(void **flatbuf_out, size_t *size_out);
+qboolean PluQ_Backend_PublishFrame(const void *flatbuf, size_t size);
+qboolean PluQ_Frontend_ReceiveFrame(void **flatbuf_out, size_t *size_out);
+qboolean PluQ_Frontend_SendInput(const void *flatbuf, size_t size);
+qboolean PluQ_Backend_ReceiveInput(void **flatbuf_out, size_t *size_out);
 
-/**
- * Get last error message
- */
-const char *PluQ_GetLastError(void);
-
-// === QuakeSpasm Integration ===
-
-/**
- * Initialize PluQ subsystem (called from Host_Init)
- * Registers console commands and cvars
- */
-void PluQ_Init(void);
-
-#ifdef __cplusplus
+// vec3_t conversion helpers
+static inline PluQ_Vec3_t QuakeVec3_To_FB(const vec3_t v)
+{
+	PluQ_Vec3_t fb_vec;
+	memcpy(&fb_vec, v, sizeof(PluQ_Vec3_t));
+	return fb_vec;
 }
-#endif
 
-#endif // PLUQ_NNG_H
+static inline void FB_Vec3_To_Quake(const PluQ_Vec3_t *fb_vec, vec3_t v)
+{
+	memcpy(v, fb_vec, sizeof(PluQ_Vec3_t));
+}
+
+#endif // _PLUQ_H_
