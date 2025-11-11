@@ -320,6 +320,7 @@ copy "$(SolutionDir)..\zlib\$(PlatformShortName)\*.dll" "$(TargetDir)"</Command>
     <ClCompile Include="..\..\Quake\snd_wave.c" />
     <ClCompile Include="..\..\Quake\snd_xmp.c" />
     <ClCompile Include="..\..\Quake\steam.c" />
+    <ClCompile Include="..\..\Quake\pluq.c" />
     <ClCompile Include="..\..\Quake\strlcat.c">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">NotUsing</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">NotUsing</PrecompiledHeader>
@@ -385,6 +386,7 @@ copy "$(SolutionDir)..\zlib\$(PlatformShortName)\*.dll" "$(TargetDir)"</Command>
     <ClInclude Include="..\..\Quake\net_wins.h" />
     <ClInclude Include="..\..\Quake\net_wipx.h" />
     <ClInclude Include="..\..\Quake\platform.h" />
+    <ClInclude Include="..\..\Quake\pluq.h" />
     <ClInclude Include="..\..\Quake\progdefs.h" />
     <ClInclude Include="..\..\Quake\progs.h" />
     <ClInclude Include="..\..\Quake\protocol.h" />
