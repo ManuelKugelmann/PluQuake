@@ -13,9 +13,6 @@ USE_SDL2=1
 ### Enable/Disable Curl
 USE_CURL=0
 
-### Enable/Disable PluQ IPC (requires nng and flatcc libraries)
-USE_PLUQ?=0
-
 # Include dependency detection (supports local and system libs)
 -include Makefile.deps
 
@@ -110,13 +107,7 @@ else
 CFLAGS     += -DWITHOUT_CURL
 endif
 
-ifeq ($(USE_PLUQ),1)
 CFLAGS     += -DUSE_PLUQ
-# TODO: Add include/library paths for nng and flatcc when building with USE_PLUQ=1
-# CFLAGS   += -Idependencies/include
-# LDFLAGS  += -Ldependencies/lib
-# LIBS     += -lnng -lflatccrt
-endif
 
 ifneq ($(VORBISLIB),vorbis)
 ifneq ($(VORBISLIB),tremor)
