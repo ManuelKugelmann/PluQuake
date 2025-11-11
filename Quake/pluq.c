@@ -9,6 +9,7 @@ of the License, or (at your option) any later version.
 
 // pluq.c -- PluQ IPC via nng + FlatBuffers
 
+#include "quakedef.h"
 #include "pluq.h"
 #include <string.h>
 
