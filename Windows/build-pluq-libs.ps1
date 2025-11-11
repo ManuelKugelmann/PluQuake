@@ -98,17 +98,17 @@ function Build-Library {
         $cmakeArgsArray += $SourceDir
 
         Write-Host "CMake configure..."
-        & $cmake $cmakeArgsArray
+        & $cmake $cmakeArgsArray | Out-Host
         if ($LASTEXITCODE -ne 0) { throw "CMake configure failed" }
 
         # Build
         Write-Host "CMake build..."
-        & $cmake --build . --config $BuildType
+        & $cmake --build . --config $BuildType | Out-Host
         if ($LASTEXITCODE -ne 0) { throw "CMake build failed" }
 
         # Install
         Write-Host "CMake install..."
-        & $cmake --install . --config $BuildType
+        & $cmake --install . --config $BuildType | Out-Host
         if ($LASTEXITCODE -ne 0) { throw "CMake install failed" }
 
     } finally {
