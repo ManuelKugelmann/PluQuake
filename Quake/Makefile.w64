@@ -99,8 +99,6 @@ else
 CFLAGS     += -DWITHOUT_CURL
 endif
 
-CFLAGS     += -DUSE_PLUQ
-
 ifneq ($(VORBISLIB),vorbis)
 ifneq ($(VORBISLIB),tremor)
 $(error Invalid VORBISLIB setting)

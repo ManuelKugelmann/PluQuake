@@ -47,7 +47,6 @@ Windows/pluq/
 The Visual Studio project (`VisualStudio/ironwail.vcxproj`) is already configured to:
 - Include headers from `../pluq/include`
 - Link libraries from `../pluq/lib/$(PlatformShortName)`
-- Add `-DUSE_PLUQ` define
 
 ## Manual Build (Alternative)
 
