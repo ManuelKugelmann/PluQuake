@@ -116,9 +116,6 @@ CFLAGS     += -DUSE_PLUQ
 # CFLAGS   += -Idependencies/include
 # LDFLAGS  += -Ldependencies/lib
 # LIBS     += -lnng -lflatccrt
-PLUQ_OBJS = pluq.o
-else
-PLUQ_OBJS =
 endif
 
 ifneq ($(VORBISLIB),vorbis)
@@ -276,7 +273,7 @@ OBJS = strlcat.o \
 	cmd.o \
 	common.o \
 	steam.o \
-	$(PLUQ_OBJS) \
+	pluq.o \
 	json.o \
 	miniz.o \
 	crc.o \
