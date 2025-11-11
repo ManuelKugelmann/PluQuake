@@ -12,15 +12,17 @@ cd Windows
 ```
 
 This will:
-1. Download nng v2.0.0-alpha.6 and flatcc v0.6.1
+1. Download nng v2.0.0-alpha.6 and flatcc (master branch)
 2. Build both for x86 and x64 architectures
 3. Create `Windows/pluq/` with headers and libraries
 4. Generate a README with build information
 
+Note: flatcc master branch is used instead of v0.6.1 to get modern CMake support and recent bug fixes.
+
 ## Requirements
 
 - Visual Studio 2017 or later
-- CMake 3.7 or later
+- CMake 3.16 or later (required by flatcc master branch)
 - Internet connection (to download sources)
 
 ## Output Structure
@@ -63,13 +65,15 @@ cmake --install . --prefix ../install
 
 ### flatcc
 ```powershell
-git clone -b v0.6.1 https://github.com/dvidelabs/flatcc.git
+git clone https://github.com/dvidelabs/flatcc.git
 cd flatcc
 mkdir build && cd build
 cmake -G "Visual Studio 17 2022" -A x64 -DFLATCC_INSTALL=ON -DFLATCC_RTONLY=ON ..
 cmake --build . --config Release
 cmake --install . --prefix ../install
 ```
+
+Note: This uses the master branch which has modern CMake support (requires CMake 3.16+).
 
 Then copy headers and .lib files to the `Windows/pluq/` structure shown above.
 

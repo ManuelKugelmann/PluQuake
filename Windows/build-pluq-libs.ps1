@@ -9,7 +9,7 @@ $ErrorActionPreference = "Stop"
 
 # Versions
 $NNG_VERSION = "2.0.0-alpha.6"
-$FLATCC_VERSION = "0.6.1"
+$FLATCC_VERSION = "master"  # Use master branch - actively maintained with modern CMake support
 
 # Directories
 $ScriptDir = $PSScriptRoot
@@ -41,19 +41,12 @@ Invoke-WebRequest -Uri $nngUrl -OutFile $nngZip
 Expand-Archive -Path $nngZip -DestinationPath $WorkDir -Force
 $nngSource = Join-Path $WorkDir "nng-$NNG_VERSION"
 
-# flatcc
-$flatccUrl = "https://github.com/dvidelabs/flatcc/archive/refs/tags/v$FLATCC_VERSION.zip"
+# flatcc - download master branch
+$flatccUrl = "https://github.com/dvidelabs/flatcc/archive/refs/heads/$FLATCC_VERSION.zip"
 $flatccZip = Join-Path $WorkDir "flatcc.zip"
 Invoke-WebRequest -Uri $flatccUrl -OutFile $flatccZip
 Expand-Archive -Path $flatccZip -DestinationPath $WorkDir -Force
 $flatccSource = Join-Path $WorkDir "flatcc-$FLATCC_VERSION"
-
-# Patch flatcc CMakeLists.txt for modern CMake compatibility
-Write-Host "Patching flatcc CMakeLists.txt for CMake compatibility..."
-$flatccCMakeLists = Join-Path $flatccSource "CMakeLists.txt"
-$content = Get-Content $flatccCMakeLists -Raw
-$content = $content -replace 'cmake_minimum_required\s*\(\s*VERSION\s+[\d.]+\s*\)', 'cmake_minimum_required(VERSION 3.5)'
-Set-Content $flatccCMakeLists -Value $content
 
 # Find CMake and Visual Studio
 Write-Host "`nLocating build tools..."
