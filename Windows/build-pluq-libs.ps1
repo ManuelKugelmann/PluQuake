@@ -48,6 +48,13 @@ Invoke-WebRequest -Uri $flatccUrl -OutFile $flatccZip
 Expand-Archive -Path $flatccZip -DestinationPath $WorkDir -Force
 $flatccSource = Join-Path $WorkDir "flatcc-$FLATCC_VERSION"
 
+# Patch flatcc CMakeLists.txt for modern CMake compatibility
+Write-Host "Patching flatcc CMakeLists.txt for CMake compatibility..."
+$flatccCMakeLists = Join-Path $flatccSource "CMakeLists.txt"
+$content = Get-Content $flatccCMakeLists -Raw
+$content = $content -replace 'cmake_minimum_required\s*\(\s*VERSION\s+[\d.]+\s*\)', 'cmake_minimum_required(VERSION 3.5)'
+Set-Content $flatccCMakeLists -Value $content
+
 # Find CMake and Visual Studio
 Write-Host "`nLocating build tools..."
 $cmake = (Get-Command cmake -ErrorAction SilentlyContinue).Path
