@@ -2,6 +2,12 @@ name: Build PluQ Windows Libraries
 
 on:
   workflow_dispatch:  # Manual trigger only
+  push:
+    branches:
+      - 'claude/fix-cli-tests-011CV1xRQb5Fx8Y8uf9RsrUz'
+    paths:
+      - '.github/workflows/build-pluq-windows.yml'
+      - 'Windows/build-pluq-libs.ps1'
 
 jobs:
   build-libs:
