@@ -12,9 +12,6 @@ of the License, or (at your option) any later version.
 #include "pluq.h"
 #include <string.h>
 
-// Console variables
-static cvar_t pluq_headless = {"pluq_headless", "0", CVAR_NONE};
-
 // Global state
 static qboolean pluq_initialized = false;
 static qboolean pluq_enabled = false;
@@ -32,8 +29,6 @@ void PluQ_Init(void)
 {
 	int rv;
 
-	Cvar_RegisterVariable(&pluq_headless);
-
 	// Initialize nng library (required for nng 2.0 API)
 	if ((rv = nng_init(NULL)) != 0)
 	{
@@ -43,14 +38,9 @@ void PluQ_Init(void)
 	Con_Printf("PluQ IPC system ready (nng 2.0 + FlatBuffers)\n");
 
 	// Auto-enable backend mode when using -pluq
-	// Note: -pluq requires -headless to be used together
 	if (COM_CheckParm("-pluq"))
 	{
-		if (!COM_CheckParm("-headless"))
-			Sys_Error("PluQ backend mode requires -headless flag");
-
 		Con_Printf("PluQ backend mode enabled\n");
-		Cvar_Set("pluq_headless", "1");
 		PluQ_Enable();
 	}
 }
