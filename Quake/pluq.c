@@ -37,8 +37,6 @@ static pluq_stats_t perf_stats = {0};
 
 void PluQ_Init(void)
 {
-	int rv;
-
 	Con_Printf("PluQ IPC system ready (nng 1.x + FlatBuffers)\n");
 
 	// Auto-enable backend mode when using -pluq
