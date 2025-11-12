@@ -13,6 +13,69 @@ of the License, or (at your option) any later version.
 #include "pluq.h"
 #include <string.h>
 
+#ifdef NO_PLUQ_LIBS
+// ============================================================================
+// STUB IMPLEMENTATIONS (for MinGW builds without nng/flatcc libraries)
+// ============================================================================
+
+void PluQ_Init(void)
+{
+	// Stub: PluQ not available in this build
+}
+
+void PluQ_Shutdown(void)
+{
+	// Stub: PluQ not available in this build
+}
+
+void PluQ_Enable(void)
+{
+	// Stub: PluQ not available in this build
+}
+
+void PluQ_Disable(void)
+{
+	// Stub: PluQ not available in this build
+}
+
+void PluQ_BroadcastWorldState(void)
+{
+	// Stub: PluQ not available in this build
+}
+
+void PluQ_ProcessInputCommands(void)
+{
+	// Stub: PluQ not available in this build
+}
+
+void PluQ_Move(usercmd_t *cmd)
+{
+	// Stub: PluQ not available in this build
+	(void)cmd;
+}
+
+void PluQ_ApplyViewAngles(void)
+{
+	// Stub: PluQ not available in this build
+}
+
+void PluQ_GetStats(pluq_stats_t *stats)
+{
+	// Stub: PluQ not available in this build
+	if (stats)
+		memset(stats, 0, sizeof(*stats));
+}
+
+void PluQ_ResetStats(void)
+{
+	// Stub: PluQ not available in this build
+}
+
+#else
+// ============================================================================
+// FULL IMPLEMENTATION (requires nng + flatcc libraries)
+// ============================================================================
+
 // Global state
 static qboolean pluq_initialized = false;
 static qboolean pluq_enabled = false;
@@ -395,3 +458,5 @@ void PluQ_ResetStats(void)
 {
 	memset(&perf_stats, 0, sizeof(perf_stats));
 }
+
+#endif // NO_PLUQ_LIBS

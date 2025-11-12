@@ -100,9 +100,12 @@ CFLAGS     += -DWITHOUT_CURL
 endif
 
 # PluQ IPC libraries (nng + flatcc)
-CFLAGS     += -I../Windows/pluq/include
-LDFLAGS    += -L../Windows/pluq/lib/x64
-PLUQ_LIBS   = -lnng -lflatccrt
+# Note: Windows/pluq/lib contains MSVC-compiled libraries that are incompatible with MinGW
+# These are only used by Visual Studio builds. MinGW builds use stub implementations.
+# TODO: Build MinGW-compatible versions of nng and flatccrt
+PLUQ_LIBS   =
+# Define NO_PLUQ_LIBS to enable stub implementations
+CFLAGS     += -DNO_PLUQ_LIBS
 
 ifneq ($(VORBISLIB),vorbis)
 ifneq ($(VORBISLIB),tremor)

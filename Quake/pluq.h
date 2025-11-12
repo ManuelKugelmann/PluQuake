@@ -14,11 +14,14 @@ of the License, or (at your option) any later version.
 // Three-channel architecture: Resources, Gameplay, Input
 
 #include "quakedef.h"
+
+#ifndef NO_PLUQ_LIBS
 #include <nng/nng.h>
 
 // Include generated FlatBuffers C headers
 #include "pluq_reader.h"
 #include "pluq_builder.h"
+#endif
 
 // ============================================================================
 // CHANNEL ENDPOINTS
@@ -38,6 +41,7 @@ of the License, or (at your option) any later version.
 // NNG CONTEXT
 // ============================================================================
 
+#ifndef NO_PLUQ_LIBS
 typedef struct {
 	nng_socket resources_rep, resources_req;
 	nng_socket gameplay_pub, gameplay_sub;
@@ -46,6 +50,7 @@ typedef struct {
 	nng_dialer resources_dialer, gameplay_dialer, input_dialer;
 	qboolean is_backend, is_frontend, initialized;
 } pluq_context_t;
+#endif
 
 // Input command structure
 typedef struct
