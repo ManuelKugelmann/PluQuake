@@ -1,0 +1,60 @@
+name: Build PluQ MinGW Libraries
+
+on:
+  workflow_dispatch:  # Manual trigger from GitHub UI
+  push:
+    branches:
+      - '**'  # Run on all branches
+    paths:
+      - '.github/workflows/build-pluq-mingw.yml'
+      - 'Windows/build-pluq-mingw.sh'
+
+jobs:
+  build-libs:
+    name: Build nng and flatcc for MinGW (LLVM-MinGW/UCRT)
+    runs-on: ubuntu-22.04
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y cmake wget tar xz-utils
+
+    - name: Run build script
+      run: |
+        cd Windows
+        chmod +x build-pluq-mingw.sh
+        ./build-pluq-mingw.sh
+
+    - name: Verify build output
+      run: |
+        if [ ! -f "Windows/pluq-mingw/include/nng/nng.h" ]; then
+          echo "ERROR: nng headers not found"
+          exit 1
+        fi
+        if [ ! -f "Windows/pluq-mingw/lib/x64/libnng.a" ]; then
+          echo "ERROR: x64 libnng.a not found"
+          exit 1
+        fi
+        if [ ! -f "Windows/pluq-mingw/lib/x64/libflatccrt.a" ]; then
+          echo "ERROR: x64 libflatccrt.a not found"
+          exit 1
+        fi
+        echo "✓ All MinGW libraries built successfully!"
+        ls -lh Windows/pluq-mingw/lib/x64/
+
+    - name: Commit and push binaries
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add Windows/pluq-mingw/
+        git status
+        if git diff --staged --quiet; then
+          echo "No changes to commit"
+        else
+          git commit -m "Update MinGW PluQ precompiled libraries (nng 1.11 + flatcc)"
+          git push
+        fi
