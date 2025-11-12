@@ -296,7 +296,7 @@ all: $(DEFAULT_TARGET)
 
 %.d:	%.c $(MAKEFILE)
 	@echo "Generating dependencies for $<" && \
-	$(CC) $(DFLAGS) -c $(CFLAGS) $(SDL_CFLAGS) -MM $< -MF $@ -MT $@
+	$(CC) $(DFLAGS) $(CFLAGS) $(SDL_CFLAGS) -MM $< -MF $@ -MT $@
 %.o:	%.c %.d $(MAKEFILE)
 	@echo "Compiling $<" && \
 	$(CC) $(DFLAGS) -c $(CFLAGS) $(SDL_CFLAGS) -o $@ $<
