@@ -119,6 +119,7 @@ EOF
         -DFLATCC_INSTALL=ON \
         -DFLATCC_RTONLY=ON \
         -DCMAKE_INSTALL_PREFIX="$WORK_DIR/install-$ARCH" \
+        -DCMAKE_ARCHIVE_OUTPUT_DIRECTORY="$WORK_DIR/flatcc/build-$ARCH/lib" \
         ..
 
     make -j$(nproc)
@@ -145,8 +146,10 @@ EOF
 }
 
 # Build both architectures
-build_arch "x64"
+# IMPORTANT: Build x86 first, then x64
+# flatcc outputs to a shared directory, so building x64 last ensures it's correct
 build_arch "x86"
+build_arch "x64"
 
 # Create README
 cat > "$OUTPUT_DIR/README.txt" << 'EOF'
