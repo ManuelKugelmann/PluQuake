@@ -18,8 +18,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Dependencies
-        run: sudo apt update && sudo apt install gcc-mingw-w64-${{ matrix.config.package }}
+      - name: Install LLVM-MinGW (UCRT)
+        run: |
+          LLVM_MINGW_VERSION="20251104"
+          LLVM_MINGW_ARCH="x86_64"
+          LLVM_MINGW_URL="https://github.com/mstorsjo/llvm-mingw/releases/download/${LLVM_MINGW_VERSION}/llvm-mingw-${LLVM_MINGW_VERSION}-ucrt-ubuntu-22.04-${LLVM_MINGW_ARCH}.tar.xz"
+          wget -q "$LLVM_MINGW_URL"
+          sudo tar -xf llvm-mingw-${LLVM_MINGW_VERSION}-ucrt-ubuntu-22.04-${LLVM_MINGW_ARCH}.tar.xz -C /opt
+          sudo ln -sf /opt/llvm-mingw-${LLVM_MINGW_VERSION}-ucrt-ubuntu-22.04-${LLVM_MINGW_ARCH} /opt/llvm-mingw/llvm-mingw-${LLVM_MINGW_VERSION}-ucrt-ubuntu-22.04-${LLVM_MINGW_ARCH}
+          rm llvm-mingw-${LLVM_MINGW_VERSION}-ucrt-ubuntu-22.04-${LLVM_MINGW_ARCH}.tar.xz
 
       - name: Build MinGW ${{ matrix.config.target }}
         run: |
