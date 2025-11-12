@@ -16,7 +16,7 @@ USE_PLUQ=1
 ### Enable/Disable codecs for streaming music support
 USE_CODEC_WAVE=1
 USE_CODEC_FLAC=0
-USE_CODEC_MP3=0
+USE_CODEC_MP3=1
 USE_CODEC_VORBIS=1
 USE_CODEC_OPUS=0
 # either xmp or mikmod (or modplug)
