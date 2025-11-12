@@ -1,6 +1,9 @@
 quakespasm
 quakespasm-pluq-frontend
 quakespasm-pluq-test-frontend
+ironwail
+ironwail-pluq-frontend
+ironwail-pluq-test-frontend
 test-frontend-env/
 *.o
 *.d
