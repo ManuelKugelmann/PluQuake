@@ -6,6 +6,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <nng/nng.h>
+#include <nng/protocol/pipeline0/push.h>
 
 #define PLUQ_URL_INPUT "tcp://127.0.0.1:9003"
 
@@ -35,14 +36,7 @@ int main(int argc, char **argv)
 
 	printf("Sending command: \"%s\"\n", cmd_text);
 
-	// Initialize nng
-	if ((rv = nng_init(NULL)) != 0)
-	{
-		fprintf(stderr, "Failed to initialize nng: %s\n", nng_strerror(rv));
-		return 1;
-	}
-
-	// Create PUSH socket
+	// Create PUSH socket (nng 1.x API)
 	if ((rv = nng_push0_open(&push)) != 0)
 	{
 		fprintf(stderr, "Failed to create PUSH socket: %s\n", nng_strerror(rv));
@@ -53,14 +47,14 @@ int main(int argc, char **argv)
 	if ((rv = nng_dialer_create(&dialer, push, PLUQ_URL_INPUT)) != 0)
 	{
 		fprintf(stderr, "Failed to create dialer: %s\n", nng_strerror(rv));
-		nng_socket_close(push);
+		nng_close(push);
 		return 1;
 	}
 
 	if ((rv = nng_dialer_start(dialer, 0)) != 0)
 	{
 		fprintf(stderr, "Failed to connect to %s: %s\n", PLUQ_URL_INPUT, nng_strerror(rv));
-		nng_socket_close(push);
+		nng_close(push);
 		return 1;
 	}
 
@@ -99,7 +93,7 @@ int main(int argc, char **argv)
 	{
 		fprintf(stderr, "Failed to build FlatBuffer\n");
 		flatcc_builder_clear(&builder);
-		nng_socket_close(push);
+		nng_close(push);
 		return 1;
 	}
 
@@ -112,7 +106,7 @@ int main(int argc, char **argv)
 		fprintf(stderr, "Failed to allocate message: %s\n", nng_strerror(rv));
 		flatcc_builder_aligned_free(buf);
 		flatcc_builder_clear(&builder);
-		nng_socket_close(push);
+		nng_close(push);
 		return 1;
 	}
 
@@ -124,7 +118,7 @@ int main(int argc, char **argv)
 		fprintf(stderr, "Failed to send: %s\n", nng_strerror(rv));
 		nng_msg_free(msg);
 		flatcc_builder_clear(&builder);
-		nng_socket_close(push);
+		nng_close(push);
 		return 1;
 	}
 

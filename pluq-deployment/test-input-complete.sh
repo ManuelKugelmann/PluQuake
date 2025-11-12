@@ -18,7 +18,7 @@ echo ""
 
 # Set library path
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-export LD_LIBRARY_PATH="$SCRIPT_DIR/../Quake/nng_lib:$LD_LIBRARY_PATH"
+export LD_LIBRARY_PATH="$SCRIPT_DIR/../Quake/dependencies/lib:$LD_LIBRARY_PATH"
 
 # Start receiver in background
 echo "Starting input receiver (simulating backend)..."

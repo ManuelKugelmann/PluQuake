@@ -7,6 +7,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <nng/nng.h>
+#include <nng/protocol/pubsub0/sub.h>
 #include <signal.h>
 #include <unistd.h>
 #include <stdint.h>
@@ -34,41 +35,34 @@ int main(void)
 	signal(SIGINT, signal_handler);
 	signal(SIGTERM, signal_handler);
 
-	// Initialize nng (required for nng 2.0)
-	if ((rv = nng_init(NULL)) != 0)
-	{
-		fprintf(stderr, "Failed to initialize nng: %s\n", nng_strerror(rv));
-		return 1;
-	}
-
-	// Open SUB socket
+	// Open SUB socket (nng 1.x API)
 	if ((rv = nng_sub0_open(&sub)) != 0)
 	{
 		fprintf(stderr, "Failed to create SUB socket: %s\n", nng_strerror(rv));
 		return 1;
 	}
 
-	// Subscribe to all topics (nng 2.0 API)
+	// Subscribe to all topics (nng 1.x API)
 	if ((rv = nng_sub0_socket_subscribe(sub, "", 0)) != 0)
 	{
 		fprintf(stderr, "Failed to subscribe: %s\n", nng_strerror(rv));
-		nng_socket_close(sub);
+		nng_close(sub);
 		return 1;
 	}
 
-	// Connect to backend using dialer API (nng 2.0)
+	// Connect to backend using dialer API (nng 1.x)
 	printf("Connecting to %s...\n", PLUQ_URL_GAMEPLAY);
 	if ((rv = nng_dialer_create(&dialer, sub, PLUQ_URL_GAMEPLAY)) != 0)
 	{
 		fprintf(stderr, "Failed to create dialer: %s\n", nng_strerror(rv));
-		nng_socket_close(sub);
+		nng_close(sub);
 		return 1;
 	}
 
 	if ((rv = nng_dialer_start(dialer, 0)) != 0)
 	{
 		fprintf(stderr, "Failed to start dialer: %s\n", nng_strerror(rv));
-		nng_socket_close(sub);
+		nng_close(sub);
 		return 1;
 	}
 
@@ -102,6 +96,6 @@ int main(void)
 	}
 
 	printf("\nTotal frames received: %u\n", frame_count);
-	nng_socket_close(sub);
+	nng_close(sub);
 	return 0;
 }

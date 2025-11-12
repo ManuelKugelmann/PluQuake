@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <nng/nng.h>
+#include <nng/protocol/pipeline0/pull.h>
 #include <signal.h>
 #include <unistd.h>
 
@@ -37,14 +38,7 @@ int main(void)
 	// Set up signal handler
 	signal(SIGINT, sigint_handler);
 
-	// Initialize nng
-	if ((rv = nng_init(NULL)) != 0)
-	{
-		fprintf(stderr, "Failed to initialize nng: %s\n", nng_strerror(rv));
-		return 1;
-	}
-
-	// Create PULL socket (backend side)
+	// Create PULL socket (backend side, nng 1.x API)
 	if ((rv = nng_pull0_open(&pull)) != 0)
 	{
 		fprintf(stderr, "Failed to create PULL socket: %s\n", nng_strerror(rv));
@@ -55,7 +49,7 @@ int main(void)
 	if ((rv = nng_listener_create(&listener, pull, PLUQ_URL_INPUT)) != 0)
 	{
 		fprintf(stderr, "Failed to create listener for %s: %s\n", PLUQ_URL_INPUT, nng_strerror(rv));
-		nng_socket_close(pull);
+		nng_close(pull);
 		return 1;
 	}
 
@@ -63,7 +57,7 @@ int main(void)
 	if ((rv = nng_listener_start(listener, 0)) != 0)
 	{
 		fprintf(stderr, "Failed to start listener on %s: %s\n", PLUQ_URL_INPUT, nng_strerror(rv));
-		nng_socket_close(pull);
+		nng_close(pull);
 		return 1;
 	}
 
