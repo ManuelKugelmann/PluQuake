@@ -1,5 +1,5 @@
 #!/bin/bash
-# Resolve ALL dependencies for Ironwail/PluQ
+# Resolve ALL dependencies for QuakeSpasm/PluQ
 # Strategy:
 #   1. Use apt packages when available (fastest)
 #   2. Download and build from source as fallback
@@ -9,10 +9,10 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 DEPS_DIR="$SCRIPT_DIR/dependencies"
-WORK_DIR="/tmp/ironwail_deps_$$"
+WORK_DIR="/tmp/quakespasm_deps_$$"
 
 echo "=========================================="
-echo "  Ironwail Dependencies Resolver"
+echo "  QuakeSpasm Dependencies Resolver"
 echo "=========================================="
 echo ""
 
@@ -300,11 +300,11 @@ echo ""
 # Create wrapper script
 cat > "$SCRIPT_DIR/run-with-downloaded-libs.sh" << 'EOFWRAPPER'
 #!/bin/bash
-# Run Ironwail with locally-built dependencies
+# Run QuakeSpasm with locally-built dependencies
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 export LD_LIBRARY_PATH="$SCRIPT_DIR/dependencies/lib:$LD_LIBRARY_PATH"
 export PKG_CONFIG_PATH="$SCRIPT_DIR/dependencies/lib/pkgconfig:$PKG_CONFIG_PATH"
-exec "$SCRIPT_DIR/ironwail" "$@"
+exec "$SCRIPT_DIR/quakespasm" "$@"
 EOFWRAPPER
 chmod +x "$SCRIPT_DIR/run-with-downloaded-libs.sh"
 
@@ -314,14 +314,14 @@ echo "=========================================="
 echo "  Next Steps"
 echo "=========================================="
 echo ""
-echo "1. Build Ironwail:"
+echo "1. Build QuakeSpasm:"
 echo "   cd $SCRIPT_DIR"
 echo "   make clean && make -j$(nproc)"
 echo ""
 echo "2. Run (if using local dependencies):"
-echo "   ./run-with-downloaded-libs.sh -headless -pluq +map start"
+echo "   ./run-with-downloaded-libs.sh -pluq +map start"
 echo ""
 echo "3. Or set LD_LIBRARY_PATH manually:"
 echo "   export LD_LIBRARY_PATH=$DEPS_DIR/lib:\$LD_LIBRARY_PATH"
-echo "   ./ironwail -headless -pluq +map start"
+echo "   ./quakespasm -pluq +map start"
 echo ""

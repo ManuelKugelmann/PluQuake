@@ -112,7 +112,7 @@ void Host_Init_PluQ_Frontend (void)
 	}
 
 	host_initialized = true;
-	Con_Printf ("\n========= Ironwail PluQ Frontend Initialized =========\n\n");
+	Con_Printf ("\n========= QuakeSpasm PluQ Frontend Initialized =========\n\n");
 	Con_Printf ("Waiting for backend connection...\n");
 
 	// PluQ Frontend executes minimal config

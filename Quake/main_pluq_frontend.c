@@ -19,7 +19,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 */
 
 // main_pluq_frontend.c -- PluQ Frontend-specific main entry point
-// Ironwail PluQ Frontend: A slim client that receives world state via PluQ
+// QuakeSpasm PluQ Frontend: A slim client that receives world state via PluQ
 
 #include "quakedef.h"
 #if defined(SDL_FRAMEWORK) || defined(NO_SDL_CONFIG)
@@ -202,7 +202,7 @@ int main(int argc, char *argv[])
 	Sys_Init();
 
 	Sys_Printf("======================================\n");
-	Sys_Printf("Ironwail PluQ Frontend v%s\n", IRONWAIL_VER_STRING);
+	Sys_Printf("QuakeSpasm PluQ Frontend v%s\n", QUAKESPASM_VER_STRING);
 	Sys_Printf("Slim Client for Remote Rendering\n");
 	Sys_Printf("======================================\n");
 
