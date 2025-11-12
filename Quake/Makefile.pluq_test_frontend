@@ -4,6 +4,9 @@
 # Enable/Disable user directories support
 DO_USERDIRS=1
 
+# Include dependency detection (supports local and system libs)
+-include Makefile.deps
+
 # Minimal SDL (headers only, stub functions)
 USE_SDL2=1
 USE_CURL=0
@@ -95,7 +98,7 @@ endif
 
 COMMON_LIBS = -ldl -lm -lpthread
 
-LIBS = $(COMMON_LIBS) $(NNG_LIBS) $(SDL_LIBS)
+LIBS = $(COMMON_LIBS) $(PLUQ_LIBS) $(SDL_LIBS)
 
 # name of this makefile
 MAKEFILE := Makefile.pluq_test_frontend

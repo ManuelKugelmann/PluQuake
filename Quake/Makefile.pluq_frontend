@@ -14,6 +14,9 @@ USE_SDL2=1
 ### Disable Curl for frontend (not needed)
 USE_CURL=0
 
+# Include dependency detection (supports local and system libs)
+-include Makefile.deps
+
 ### Enable/Disable codecs for streaming music support
 USE_CODEC_WAVE=1
 USE_CODEC_FLAC=0
@@ -178,7 +181,7 @@ else
 COMMON_LIBS= -lGL -ldl -lm
 endif
 
-LIBS = $(COMMON_LIBS) $(NET_LIBS) $(CODECLIBS)
+LIBS = $(COMMON_LIBS) $(NET_LIBS) $(CODECLIBS) $(PLUQ_LIBS)
 
 # name of this makefile, so we can use it as a dependency
 MAKEFILE := Makefile.pluq_frontend
@@ -206,7 +209,8 @@ SYSOBJ_INPUT = in_sdl.o
 SYSOBJ_GL_VID= gl_vidsdl.o
 # PluQ Frontend: No networking objects (net_bsd.o, net_udp.o)
 SYSOBJ_NET =
-SYSOBJ_SYS = pl_linux.o sys_sdl_unix.o
+# PluQ Frontend: No platform-specific objects (stubs_pluq_frontend.o provides these)
+SYSOBJ_SYS = sys_sdl_unix.o
 # PluQ Frontend: Use frontend-specific main
 SYSOBJ_MAIN= main_pluq_frontend.o
 
