@@ -8,7 +8,7 @@ param(
 $ErrorActionPreference = "Stop"
 
 # Versions
-$NNG_VERSION = "2.0.0-alpha.6"
+$NNG_VERSION = "1.11"
 $FLATCC_VERSION = "master"  # Use master branch - actively maintained with modern CMake support
 
 # Directories

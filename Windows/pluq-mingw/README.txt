@@ -4,7 +4,7 @@ PluQ Libraries for MinGW (UCRT)
 These libraries were built with LLVM-MinGW which has UCRT support.
 
 Contents:
-- nng 2.0.0-alpha.6 (static library)
+- nng 1.11 (stable, static library)
 - flatcc runtime (static library)
 
 Directory structure:
@@ -25,3 +25,5 @@ These libraries are compatible with:
 NOT compatible with:
 - Standard MinGW-w64 (uses MSVCRT, not UCRT)
 - MSVC (use Windows/pluq/ instead)
+
+NOTE: nng 1.11 requires UCRT on Windows (same as nng 2.x).

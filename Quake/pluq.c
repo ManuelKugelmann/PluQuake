@@ -34,13 +34,7 @@ void PluQ_Init(void)
 {
 	int rv;
 
-	// Initialize nng library (required for nng 2.0 API)
-	if ((rv = nng_init(NULL)) != 0)
-	{
-		Sys_Error("PluQ: Failed to initialize nng library: %s", nng_strerror(rv));
-	}
-
-	Con_Printf("PluQ IPC system ready (nng 2.0 + FlatBuffers)\n");
+	Con_Printf("PluQ IPC system ready (nng 1.x + FlatBuffers)\n");
 
 	// Auto-enable backend mode when using -pluq
 	if (COM_CheckParm("-pluq"))

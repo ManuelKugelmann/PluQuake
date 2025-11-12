@@ -107,7 +107,7 @@ CFLAGS     += -DWITHOUT_CURL
 endif
 
 # PluQ IPC libraries (nng + flatcc)
-# MinGW builds use LLVM-MinGW-compatible libraries with UCRT support
+# MinGW builds use standard MinGW-w64 with nng 1.11 (stable)
 CFLAGS     += -I../Windows/pluq-mingw/include
 LDFLAGS    += -L../Windows/pluq-mingw/lib/x86
 PLUQ_LIBS   = -lnng -lflatccrt
