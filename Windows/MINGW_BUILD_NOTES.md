@@ -1,45 +1,64 @@
 # MinGW Build Notes for PluQ
 
-## Current Status
+## Current Status (Updated 2025-11-12)
 
-MinGW cross-compilation builds (Makefile.w32/w64) currently use **stub implementations** for PluQ functions. This means the executables compile successfully but PluQ IPC functionality is disabled.
+MinGW cross-compilation builds now have **full PluQ support** with nng 1.11 and flatcc libraries built using LLVM-MinGW with UCRT support.
 
-## Why No PluQ Support in MinGW?
+## Unified Library Structure
 
-The prebuilt libraries in `Windows/pluq/lib/` are compiled with **Microsoft Visual Studio (MSVC)** and are incompatible with MinGW's GCC linker due to:
+PluQ libraries for both MSVC and MinGW are now in `Windows/pluq/`:
 
-1. **Different name mangling**: MSVC uses `_imp__nng_*` import naming
-2. **Different runtime libraries**: MSVC uses `__security_cookie`, `@__security_check_cookie@4`
-3. **Different helper functions**: MSVC uses `_allmul` for 64-bit multiply in 32-bit code
-
-Additionally, **nng 2.0 requires Universal C Runtime (UCRT)** which is not available in standard MinGW-w64. The nng build explicitly rejects "legacy MinGW environments".
-
-## Solutions
-
-### Option 1: Use Visual Studio (Recommended)
-
-The Visual Studio project (`Windows/VisualStudio/ironwail.vcxproj`) has full PluQ support with prebuilt libraries.
-
-### Option 2: Build with MSYS2 MinGW-UCRT
-
-MSYS2 provides MinGW-w64 with UCRT support:
-
-```bash
-# In MSYS2 UCRT64 shell
-pacman -S mingw-w64-ucrt-x86_64-gcc mingw-w64-ucrt-x86_64-cmake
-cd Quake
-./build-pluq-mingw.sh x64
+```
+Windows/pluq/
+  include/           - Shared headers (nng 1.11 + flatcc)
+  lib/x64/
+    libnng.a         - MinGW 64-bit
+    libflatccrt.a    - MinGW 64-bit
+    nng.lib          - MSVC 64-bit (built by CI)
+    flatccrt.lib     - MSVC 64-bit (built by CI)
+  lib/x86/
+    libnng.a         - MinGW 32-bit
+    libflatccrt.a    - MinGW 32-bit
+    nng.lib          - MSVC 32-bit (built by CI)
+    flatccrt.lib     - MSVC 32-bit (built by CI)
 ```
 
-### Option 3: Accept Stub Implementations
+This mirrors the structure used by SDL2 and other Windows dependencies.
 
-MinGW cross-compilation builds work fine without PluQ. The stub implementations ensure compilation succeeds.
+## Building with MinGW
 
-## Future Work
+### Cross-compilation from Linux
 
-- Build MinGW-compatible nng/flatcc libraries with UCRT toolchain
-- Add these to `Windows/pluq-mingw/` directory
-- Update Makefiles to detect and use MinGW libs when available
+MinGW libraries are automatically built using LLVM-MinGW:
+
+```bash
+cd Windows
+./build-pluq-mingw.sh
+```
+
+The script:
+- Downloads LLVM-MinGW with UCRT support
+- Builds nng 1.11 for both x86 and x64
+- Builds flatcc runtime for both architectures
+- Installs libraries to `Windows/pluq/lib/`
+
+### Cross-compilation build scripts
+
+```bash
+cd Quake
+./build_cross_win64-sdl2.sh  # 64-bit
+./build_cross_win32-sdl2.sh  # 32-bit
+```
+
+These automatically use the libraries from `Windows/pluq/`.
+
+## Why LLVM-MinGW?
+
+**nng 1.11 requires Universal C Runtime (UCRT)** which is not available in standard MinGW-w64. LLVM-MinGW provides:
+
+1. **UCRT support** - Required by nng 1.11
+2. **Modern toolchain** - Clang/LLVM based
+3. **Cross-platform builds** - Works on Linux for Windows targets
 
 ## Technical Details
 
