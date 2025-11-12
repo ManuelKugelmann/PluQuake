@@ -417,6 +417,7 @@ void Host_SavegameComment (char text[SAVEGAME_COMMENT_LENGTH + 1]);
 void Host_WaitForSaveThread (void);
 void Host_ShutdownSave (void);
 qboolean Host_IsSaving (void);
+qboolean Host_IsHeadless (void);
 
 void ExtraMaps_Init (void);
 void Modlist_Init (void);

@@ -106,6 +106,13 @@ else
 CFLAGS     += -DWITHOUT_CURL
 endif
 
+# PluQ IPC libraries (nng + flatcc)
+# MinGW builds use standard MinGW-w64 with nng 1.11 (stable)
+CFLAGS     += -I../Windows/pluq/include -DNNG_STATIC_LIB
+LDFLAGS    += -L../Windows/pluq/lib/x86
+# nng requires ws2_32 (Winsock2) - must be linked after nng
+PLUQ_LIBS   = -lnng -lflatccrt -lws2_32
+
 ifneq ($(VORBISLIB),vorbis)
 ifneq ($(VORBISLIB),tremor)
 $(error Invalid VORBISLIB setting)
@@ -186,7 +193,7 @@ CFLAGS+= $(CODEC_INC)
 
 COMMON_LIBS= -lopengl32 -lwinmm -luuid -lole32
 
-LIBS = $(COMMON_LIBS) $(NET_LIBS) $(CODEC_LINK) $(CODECLIBS)
+LIBS = $(COMMON_LIBS) $(NET_LIBS) $(CODEC_LINK) $(CODECLIBS) $(PLUQ_LIBS)
 
 # name of this makefile, so we can use it as a dependency
 MAKEFILE := $(lastword $(MAKEFILE_LIST))

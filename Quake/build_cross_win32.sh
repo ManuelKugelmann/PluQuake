@@ -1,11 +1,10 @@
 #!/bin/sh
 
-# Change this script to meet your needs and/or environment.
+# Cross-compile for Windows x86 (32-bit) using LLVM-MinGW (UCRT)
+# LLVM-MinGW is required because nng 1.11 requires UCRT runtime
 
-#TARGET=i686-w64-mingw32
-TARGET=i686-pc-mingw32
-#PREFIX=/opt/cross_win32
-PREFIX=/usr/local/cross-win32
+TARGET=i686-w64-mingw32
+PREFIX=/opt/llvm-mingw/llvm-mingw-20251104-ucrt-ubuntu-22.04-x86_64
 
 PATH="$PREFIX/bin:$PATH"
 export PATH

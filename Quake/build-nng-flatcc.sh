@@ -2,7 +2,7 @@
 # Build nng and flatcc from source (wrapper script)
 # This script calls the separate build scripts for nng and flatcc
 #
-# nng: apt has 1.7.2, but we need 2.0.x for API compatibility
+# nng: Using stable 1.11 instead of unstable 2.0.x alpha
 # flatcc: not available in apt at all
 
 set -e
@@ -15,7 +15,7 @@ echo "  Building nng and flatcc from source"
 echo "=========================================="
 echo ""
 echo "This will build:"
-echo "  1. nng v2.0.0-alpha.6 (IPC transport)"
+echo "  1. nng v1.11 (stable, IPC transport)"
 echo "  2. flatcc v0.6.1 (FlatBuffers)"
 echo ""
 
@@ -52,7 +52,7 @@ echo ""
 echo "Installation directory: $DEPS_DIR"
 echo ""
 echo "Libraries built (both static):"
-echo "  ✓ nng v2.0.0-alpha.6"
+echo "  ✓ nng v1.11 (stable)"
 echo "  ✓ flatcc v0.6.1"
 echo ""
 echo "Files created:"

@@ -10,6 +10,10 @@ jobs:
         platform: [x64, Win32]
     steps:
     - uses: actions/checkout@v4
+    - name: Build PluQ libraries (nng 1.11 + flatcc)
+      run: |
+        cd Windows
+        pwsh -File build-pluq-libs.ps1
     - name: Set environment variables
       run: |
         $gitrev = $(git describe --always)

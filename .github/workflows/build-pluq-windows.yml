@@ -1,0 +1,59 @@
+name: Build PluQ Windows Libraries
+
+on:
+  workflow_dispatch:  # Manual trigger from GitHub UI
+  push:
+    branches:
+      - '**'  # Run on all branches
+    paths:
+      - '.github/workflows/build-pluq-windows.yml'
+      - 'Windows/build-pluq-libs.ps1'
+
+jobs:
+  build-libs:
+    name: Build nng and flatcc for Windows
+    runs-on: windows-2022
+
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Install CMake
+      uses: lukka/get-cmake@latest
+
+    - name: Run build script
+      run: |
+        cd Windows
+        .\build-pluq-libs.ps1
+
+    - name: Verify build output
+      run: |
+        if (-not (Test-Path "Windows\pluq\include\nng\nng.h")) {
+          throw "nng headers not found"
+        }
+        if (-not (Test-Path "Windows\pluq\lib\x86\nng.lib")) {
+          throw "x86 nng.lib not found"
+        }
+        if (-not (Test-Path "Windows\pluq\lib\x64\nng.lib")) {
+          throw "x64 nng.lib not found"
+        }
+        if (-not (Test-Path "Windows\pluq\lib\x86\flatccrt.lib")) {
+          throw "x86 flatccrt.lib not found"
+        }
+        if (-not (Test-Path "Windows\pluq\lib\x64\flatccrt.lib")) {
+          throw "x64 flatccrt.lib not found"
+        }
+        Write-Host "All libraries built successfully!"
+
+    - name: Commit and push binaries
+      run: |
+        git config user.name "github-actions[bot]"
+        git config user.email "github-actions[bot]@users.noreply.github.com"
+        git add Windows/pluq/
+        git status
+        if (git diff --staged --quiet) {
+          Write-Host "No changes to commit"
+        } else {
+          git commit -m "Add Windows PluQ precompiled libraries (nng + flatcc)"
+          git push
+        }

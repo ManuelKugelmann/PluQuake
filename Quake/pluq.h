@@ -14,6 +14,7 @@ of the License, or (at your option) any later version.
 // Three-channel architecture: Resources, Gameplay, Input
 
 #include "quakedef.h"
+
 #include <nng/nng.h>
 
 // Include generated FlatBuffers C headers

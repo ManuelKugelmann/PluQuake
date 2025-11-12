@@ -9,11 +9,18 @@ of the License, or (at your option) any later version.
 
 // pluq.c -- PluQ IPC via nng + FlatBuffers
 
+#include "quakedef.h"
 #include "pluq.h"
 #include <string.h>
 
-// Console variables
-static cvar_t pluq_headless = {"pluq_headless", "0", CVAR_NONE};
+// nng 1.x protocol headers
+#include <nng/protocol/reqrep0/rep.h>
+#include <nng/protocol/pubsub0/pub.h>
+#include <nng/protocol/pipeline0/pull.h>
+
+// ============================================================================
+// FULL IMPLEMENTATION (requires nng + flatcc libraries)
+// ============================================================================
 
 // Global state
 static qboolean pluq_initialized = false;
@@ -30,27 +37,12 @@ static pluq_stats_t perf_stats = {0};
 
 void PluQ_Init(void)
 {
-	int rv;
-
-	Cvar_RegisterVariable(&pluq_headless);
-
-	// Initialize nng library (required for nng 2.0 API)
-	if ((rv = nng_init(NULL)) != 0)
-	{
-		Sys_Error("PluQ: Failed to initialize nng library: %s", nng_strerror(rv));
-	}
-
-	Con_Printf("PluQ IPC system ready (nng 2.0 + FlatBuffers)\n");
+	Con_Printf("PluQ IPC system ready (nng 1.x + FlatBuffers)\n");
 
 	// Auto-enable backend mode when using -pluq
-	// Note: -pluq requires -headless to be used together
 	if (COM_CheckParm("-pluq"))
 	{
-		if (!COM_CheckParm("-headless"))
-			Sys_Error("PluQ backend mode requires -headless flag");
-
 		Con_Printf("PluQ backend mode enabled\n");
-		Cvar_Set("pluq_headless", "1");
 		PluQ_Enable();
 	}
 }
@@ -404,3 +396,4 @@ void PluQ_ResetStats(void)
 {
 	memset(&perf_stats, 0, sizeof(perf_stats));
 }
+

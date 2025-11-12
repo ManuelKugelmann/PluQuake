@@ -7,6 +7,10 @@ DO_USERDIRS=1
 # Minimal SDL (headers only, stub functions)
 USE_SDL2=1
 USE_CURL=0
+
+# Include dependency detection (supports local and system libs)
+# NOTE: Must come after USE_SDL2 is set so it can detect SDL properly
+-include Makefile.deps
 USE_CODEC_WAVE=0
 USE_CODEC_FLAC=0
 USE_CODEC_MP3=0
@@ -68,34 +72,15 @@ ifeq ($(DO_USERDIRS),1)
 CFLAGS += -DDO_USERDIRS=1
 endif
 
-# SDL2 configuration (headers only, minimal linking)
-ifeq ($(USE_SDL2),1)
-SDL_CONFIG ?= sdl2-config
-else
-SDL_CONFIG ?= sdl-config
-endif
-SDL_CFLAGS = $(shell $(SDL_CONFIG) --cflags)
-SDL_LIBS   = $(shell $(SDL_CONFIG) --libs)
+# SDL2 configuration is handled by Makefile.deps (included above)
+# Don't override SDL_CFLAGS and SDL_LIBS here as they're already set correctly
 
-# nng and FlatCC libraries (static linking)
-# Check for local dependencies first, then system
-LOCAL_DEPS_DIR := $(wildcard dependencies)
-
-ifneq ($(LOCAL_DEPS_DIR),)
-    ifneq ($(wildcard dependencies/lib/libnng*),)
-        CFLAGS += -Idependencies/include
-        NNG_LIBS = -Ldependencies/lib -lnng -lflatccrt
-    endif
-endif
-
-# Fallback to system if no local deps found
-ifeq ($(NNG_LIBS),)
-    NNG_LIBS = -lnng -lflatccrt
-endif
+# nng and FlatCC libraries are handled by Makefile.deps (included above)
+# PLUQ_LIBS is already set correctly with local or system libraries
 
 COMMON_LIBS = -ldl -lm -lpthread
 
-LIBS = $(COMMON_LIBS) $(NNG_LIBS) $(SDL_LIBS)
+LIBS = $(COMMON_LIBS) $(PLUQ_LIBS) $(SDL_LIBS)
 
 # name of this makefile
 MAKEFILE := Makefile.pluq_test_frontend
@@ -105,7 +90,7 @@ MAKEFILE := Makefile.pluq_test_frontend
 # ---------------------------
 
 # Minimal object set - reuses host_pluq_frontend.o for initialization
-# Platform-specific code (pl_linux.o) is stubbed in stubs_pluq_frontend.o for headless mode
+# Platform-specific code (pl_linux.o) is stubbed in stubs_pluq_test_frontend.o for headless mode
 OBJS = strlcat.o \
 	strlcpy.o \
 	cmd.o \
@@ -125,7 +110,7 @@ OBJS = strlcat.o \
 	miniz.o \
 	sys_sdl_unix.o \
 	main_pluq_test_frontend.o \
-	stubs_pluq_frontend.o
+	stubs_pluq_test_frontend.o
 
 OBJDEPS := $(OBJS:%.o=%.d)
 

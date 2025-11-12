@@ -1,6 +1,6 @@
 #!/bin/bash
-# Build nng 2.0 from source
-# nng: apt has 1.7.2, but we need 2.0.x for API compatibility
+# Build nng 1.11 from source
+# Using stable nng 1.11 instead of unstable 2.0.x alpha
 
 set -e
 
@@ -9,7 +9,7 @@ DEPS_DIR="${DEPS_DIR:-$SCRIPT_DIR/dependencies}"
 WORK_DIR="${WORK_DIR:-/tmp/nng_build_$$}"
 
 echo "=========================================="
-echo "  Building nng 2.0 from source"
+echo "  Building nng 1.11 from source"
 echo "=========================================="
 echo ""
 
@@ -37,11 +37,11 @@ echo ""
 # Build nng (nanomsg-next-generation)
 # =============================================================================
 
-echo "Building nng (nanomsg-next-generation) v2.0.0-alpha.6 (static library)..."
+echo "Building nng (nanomsg-next-generation) v1.11 (static library)..."
 echo "  Why build from source:"
-echo "    - apt provides nng 1.7.2, but we need 2.0.x API"
-echo "    - PluQ code uses 2.0 API: nng_init(), nng_listener_create()"
-echo "    - No pre-built 2.0.x binaries available"
+echo "    - Using stable nng 1.11 instead of unstable 2.0.x alpha"
+echo "    - apt provides older version 1.7.2"
+echo "    - No pre-built 1.11 binaries available"
 echo "    - Built as static library for single-binary deployment"
 echo ""
 
@@ -50,12 +50,12 @@ NNG_SUCCESS=0
 # Try git clone first (preferred method)
 if command -v git > /dev/null; then
     echo "  Method: git clone (fast, shallow)"
-    git clone --depth 1 --branch v2.0.0-alpha.6 https://github.com/nanomsg/nng.git nng-build 2>&1 | tail -3
+    git clone --depth 1 --branch v1.11 https://github.com/nanomsg/nng.git nng-build 2>&1 | tail -3
     NNG_SOURCE="git"
 else
     # Fallback to tarball download
     echo "  Method: tarball download"
-    NNG_URL="https://github.com/nanomsg/nng/archive/refs/tags/v2.0.0-alpha.6.tar.gz"
+    NNG_URL="https://github.com/nanomsg/nng/archive/refs/tags/v1.11.tar.gz"
     if command -v wget > /dev/null; then
         wget -q --show-progress -O nng.tar.gz "$NNG_URL" 2>&1
     elif command -v curl > /dev/null; then
@@ -67,7 +67,7 @@ else
 
     if [ -f nng.tar.gz ]; then
         tar xzf nng.tar.gz
-        mv nng-2.0.0-alpha.6 nng-build
+        mv nng-1.11 nng-build
         NNG_SOURCE="tarball"
     fi
 fi
@@ -133,7 +133,7 @@ echo ""
 echo "Installation directory: $DEPS_DIR"
 echo ""
 echo "Library built:"
-echo "  ✓ nng v2.0.0-alpha.6 (static library)"
+echo "  ✓ nng v1.11 (stable, static library)"
 echo ""
 echo "This static library will be linked directly into ironwail binary."
 echo ""
