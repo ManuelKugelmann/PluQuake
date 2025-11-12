@@ -3,7 +3,7 @@
 # Strategy:
 #   1. Use apt packages when available (fastest)
 #   2. Download and build from source as fallback
-#   3. Always build nng 2.0 and flatcc from source (special script)
+#   3. Always build nng 1.11 and flatcc from source (special script)
 
 set -e
 
@@ -251,7 +251,7 @@ cd /
 rm -rf "$WORK_DIR"
 
 # =============================================================================
-# Step 3: Build nng 2.0 and flatcc (always from source)
+# Step 3: Build nng 1.11 and flatcc (always from source)
 # =============================================================================
 
 echo "=========================================="
@@ -259,7 +259,7 @@ echo "  Step 3: Building PluQ IPC dependencies"
 echo "=========================================="
 echo ""
 echo "nng and flatcc are ALWAYS built from source:"
-echo "  - nng: apt has 1.7.2, but PluQ code requires 2.0.x API"
+echo "  - nng: apt has 1.7.2, but PluQ uses stable 1.11"
 echo "  - flatcc: not available in apt"
 echo ""
 

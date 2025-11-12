@@ -30,17 +30,9 @@ static pluq_stats_t perf_stats = {0};
 
 void PluQ_Init(void)
 {
-	int rv;
-
 	Cvar_RegisterVariable(&pluq_headless);
 
-	// Initialize nng library (required for nng 2.0 API)
-	if ((rv = nng_init(NULL)) != 0)
-	{
-		Sys_Error("PluQ: Failed to initialize nng library: %s", nng_strerror(rv));
-	}
-
-	Con_Printf("PluQ IPC system ready (nng 2.0 + FlatBuffers)\n");
+	Con_Printf("PluQ IPC system ready (nng 1.x + FlatBuffers)\n");
 }
 
 qboolean PluQ_Initialize(pluq_mode_t mode)
