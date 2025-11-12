@@ -15,7 +15,18 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: Install Dependencies
-      run: sudo apt update && sudo apt install libmad0-dev libsdl2-dev libvorbis-dev
+      run: sudo apt update && sudo apt install libmad0-dev libsdl2-dev libvorbis-dev cmake ninja-build
 
-    - name: Build ${{ matrix.compiler }}
+    - name: Build NNG and FlatCC for PluQ
+      run: |
+        cd Quake
+        ./download-dependencies.sh
+
+    - name: Build Backend ${{ matrix.compiler }}
       run: make --jobs=3 --keep-going --directory=Quake CC=${{ matrix.compiler }} USE_SDL2=1
+
+    - name: Build PluQ Production Frontend ${{ matrix.compiler }}
+      run: make --jobs=3 --keep-going --directory=Quake -f Makefile.pluq_frontend CC=${{ matrix.compiler }}
+
+    - name: Build PluQ Test Frontend ${{ matrix.compiler }}
+      run: make --jobs=3 --keep-going --directory=Quake -f Makefile.pluq_test_frontend CC=${{ matrix.compiler }}
