@@ -45,6 +45,7 @@ DFLAGS ?=
 CFLAGS ?= -Wall -Wno-trigraphs
 CFLAGS += -I.  # For flatcc headers
 CFLAGS += -DPLUQ_FRONTEND
+CFLAGS += -DUSE_SDL2
 CFLAGS += -D_FILE_OFFSET_BITS=64
 CFLAGS += $(call check_gcc,-std=gnu11,)
 CFLAGS += $(call check_gcc,-Werror=format,)
@@ -120,9 +121,7 @@ OBJS = strlcat.o \
 	zone.o \
 	wad.o \
 	pluq.o \
-	pluq_frontend.o \
 	host_pluq_frontend.o \
-	json.o \
 	miniz.o \
 	sys_sdl_unix.o \
 	main_pluq_test_frontend.o \

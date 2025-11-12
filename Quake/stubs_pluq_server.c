@@ -46,6 +46,7 @@ qboolean ExtraMaps_IsStart (int type) { return false; }
 void ExtraMaps_Clear (void) {}
 void ExtraMaps_Init (void) {}
 void ExtraMaps_ShutDown (void) {}
+void ExtraMaps_NewGame (void) {}
 
 // Mod management stubs
 const char *Modlist_GetFullName (const filelist_item_t *item) { return ""; }
@@ -91,6 +92,9 @@ void CL_ParseServerMessage (void)
 
 // Network message keeping stub
 void CL_KeepaliveMessage (void) {}
+
+// Client input stubs
+void CL_AccumulateCmd (void) {}
 
 // Note: CL_ClearSignons is in cl_demo.o
 // Note: CL_PrintEntities_f is in cl_main.o
@@ -161,6 +165,7 @@ int hostCacheCount = 0;
 
 // QuakeC VM (not used in frontend - qcvm_t is Ironwail-specific, use void* for QuakeSpasm)
 void *qcvm = NULL;
+int pr_edict_size = 0;
 
 // ============================================================================
 // Minimal stubs for server/network/QuakeC functions
@@ -243,6 +248,15 @@ void Host_ShutdownServer (qboolean crash) {}
 void Host_WriteConfiguration (void) {}
 void Host_InvokeOnMainThread (void (*func)(void *), void *data) {}
 void Host_Quit_f (void) { Sys_Quit(); }
+void Host_Error (const char *error, ...)
+{
+	va_list argptr;
+	char text[1024];
+	va_start (argptr, error);
+	q_vsnprintf (text, sizeof(text), error, argptr);
+	va_end (argptr);
+	Sys_Error ("Host_Error: %s", text);
+}
 void Host_EndGame (const char *message, ...)
 {
 	va_list argptr;

@@ -124,4 +124,9 @@ static inline void FB_Vec3_To_Quake(const PluQ_Vec3_t *fb_vec, vec3_t v)
 	memcpy(v, fb_vec, sizeof(PluQ_Vec3_t));
 }
 
+// Test Frontend Helper Functions
+void PluQ_Frontend_SendCommand(const char *cmd);
+qboolean PluQ_Frontend_ReceiveWorldState(void);
+void PluQ_Frontend_ApplyReceivedState(void);
+
 #endif // _PLUQ_H_

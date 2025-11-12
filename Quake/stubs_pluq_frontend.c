@@ -124,13 +124,13 @@ qboolean M_WantsConsole (float *alpha) { if (alpha) *alpha = 0.0f; return false;
 qboolean M_WaitingForKeyBinding (void) { return false; }
 void M_Keydown (int key) {}
 void M_Charinput (int key) {}
-enum textmode_t M_TextEntry (void) { return TEXTMODE_OFF; }
+int M_TextEntry (void) { return 0; } // textmode_t is Ironwail-specific, use int for QuakeSpasm
 void M_PrintWhite (int cx, int cy, const char *str) {}
 
 // Video management stubs (additional)
 void VID_Lock (void) {}
 void VID_Toggle (void) {}
-void VID_SetMouseCursor (mousecursor_t cursor) {}
+void VID_SetMouseCursor (int cursor) {} // mousecursor_t is Ironwail-specific
 
 // Texture manager stubs (additional)
 void TexMgr_NewGame (void) {}
@@ -143,7 +143,7 @@ void Draw_String (int x, int y, const char *str) {}
 void Draw_Fill (int x, int y, int w, int h, int c, float alpha) {}
 void Draw_Pic (int x, int y, qpic_t *pic) {}
 void Draw_ConsoleBackground (void) {}
-void Draw_GetCanvasTransform (canvastype canvas, drawtransform_t *transform) {}
+void Draw_GetCanvasTransform (canvastype canvas, void *transform) {} // drawtransform_t is Ironwail-specific
 
 // Renderer stubs (additional)
 void R_NewGame (void) {}
@@ -163,10 +163,11 @@ void GL_PopCanvasColor (void) {}
 
 // Input stubs (additional)
 void IN_Activate (void) {}
+void IN_Deactivate (qboolean free_cursor) {}
 void IN_DeactivateForConsole (void) {}
 void IN_UpdateInputMode (void) {}
 qboolean IN_EmulatedCharEvents (void) { return false; }
-gamepadtype_t IN_GetGamepadType (void) { return GAMEPAD_NONE; }
+int IN_GetGamepadType (void) { return 0; } // gamepadtype_t is Ironwail-specific
 
 // Platform stubs (additional)
 char *PL_GetClipboardData (void) { return NULL; }
@@ -181,6 +182,7 @@ int glx = 0;
 int gly = 0;
 int clearnotify = 0;
 int scr_tileclear_updates = 0;
+modestate_t modestate = MS_UNINIT; // Video mode state (referenced by console.c and keys.c)
 
 // Video definition (declared in vid.h, defined here)
 viddef_t vid;

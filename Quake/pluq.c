@@ -572,3 +572,44 @@ void PluQ_ResetStats(void)
 {
 	memset(&perf_stats, 0, sizeof(perf_stats));
 }
+
+// ============================================================================
+// Test Frontend Helper Functions (simplified wrappers for test frontend)
+// ============================================================================
+
+static void *frontend_frame_buffer = NULL;
+static size_t frontend_frame_size = 0;
+
+void PluQ_Frontend_SendCommand(const char *cmd)
+{
+	// For test frontend: just add command to local console buffer
+	// In a full implementation, this would serialize the command and send via PluQ
+	Cbuf_AddText(cmd);
+	Cbuf_AddText("\n");
+}
+
+qboolean PluQ_Frontend_ReceiveWorldState(void)
+{
+	// Free previous frame if any
+	if (frontend_frame_buffer)
+	{
+		nng_msg_free((nng_msg *)frontend_frame_buffer);
+		frontend_frame_buffer = NULL;
+		frontend_frame_size = 0;
+	}
+
+	// Try to receive new frame
+	return PluQ_Frontend_ReceiveFrame(&frontend_frame_buffer, &frontend_frame_size);
+}
+
+void PluQ_Frontend_ApplyReceivedState(void)
+{
+	// Apply the received world state
+	// In a full implementation, this would deserialize and apply the state
+	// For now, it's just a placeholder
+	if (frontend_frame_buffer && frontend_frame_size > 0)
+	{
+		// TODO: Deserialize and apply state
+		// For now, we just acknowledge receipt
+	}
+}
