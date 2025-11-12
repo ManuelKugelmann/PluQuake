@@ -1,28 +1,28 @@
-PluQ Libraries for MinGW (UCRT)
-================================
+# PluQ Dependencies for Windows
 
-These libraries were built with LLVM-MinGW which has UCRT support.
+This directory contains pre-built nng and flatcc libraries for Windows.
 
-Contents:
-- nng 1.11 (stable, static library)
-- flatcc runtime (static library)
+## Versions
+- nng: 1.11
+- flatcc: master
 
-Directory structure:
-lib/x86/     - 32-bit libraries (libnng.a, libflatccrt.a)
-lib/x64/     - 64-bit libraries (libnng.a, libflatccrt.a)
-include/     - Headers (nng/, flatcc/)
+## Build Information
+- Built with: Visual Studio 2022
+- Configuration: Release
+- Architectures: x86, x64
 
-Usage with MinGW Makefiles:
-CFLAGS += -I../Windows/pluq/include
-LDFLAGS += -L../Windows/pluq/lib/x86  (or x64)
-LIBS += -lnng -lflatccrt
+## Contents
+- include/nng/     - nng headers
+- include/flatcc/  - flatcc headers
+- lib/x86/         - 32-bit libraries (nng.lib, flatccrt.lib)
+- lib/x64/         - 64-bit libraries (nng.lib, flatccrt.lib)
 
-These libraries are compatible with:
-- LLVM-MinGW (UCRT)
-- MSYS2 UCRT64 toolchain
-- Any MinGW toolchain using UCRT
+## Rebuild
+To rebuild these libraries, run:
+  .\build-pluq-libs.ps1
 
-Note: The pluq directory contains both MinGW (.a) and MSVC (.lib) libraries
-sharing the same headers, similar to other Windows dependencies like SDL2.
+## Sources
+- nng: https://github.com/nanomsg/nng
+- flatcc: https://github.com/dvidelabs/flatcc
 
-NOTE: nng 1.11 requires UCRT on Windows (same as nng 2.x).
+Built on: 2025-11-12 20:36:20
