@@ -108,8 +108,8 @@ endif
 
 # PluQ IPC libraries (nng + flatcc)
 # MinGW builds use standard MinGW-w64 with nng 1.11 (stable)
-CFLAGS     += -I../Windows/pluq-mingw/include -DNNG_STATIC_LIB
-LDFLAGS    += -L../Windows/pluq-mingw/lib/x86
+CFLAGS     += -I../Windows/pluq/include -DNNG_STATIC_LIB
+LDFLAGS    += -L../Windows/pluq/lib/x86
 # nng requires ws2_32 (Winsock2) - must be linked after nng
 PLUQ_LIBS   = -lnng -lflatccrt -lws2_32
 

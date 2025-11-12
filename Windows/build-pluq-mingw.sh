@@ -6,7 +6,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 WORK_DIR="$SCRIPT_DIR/build-pluq-mingw"
-OUTPUT_DIR="$SCRIPT_DIR/pluq-mingw"
+OUTPUT_DIR="$SCRIPT_DIR/pluq"
 
 # LLVM-MinGW version and download URL
 LLVM_MINGW_VERSION="20251104"
@@ -165,8 +165,8 @@ lib/x64/     - 64-bit libraries (libnng.a, libflatccrt.a)
 include/     - Headers (nng/, flatcc/)
 
 Usage with MinGW Makefiles:
-CFLAGS += -I../Windows/pluq-mingw/include
-LDFLAGS += -L../Windows/pluq-mingw/lib/x86  (or x64)
+CFLAGS += -I../Windows/pluq/include
+LDFLAGS += -L../Windows/pluq/lib/x86  (or x64)
 LIBS += -lnng -lflatccrt
 
 These libraries are compatible with:
@@ -174,9 +174,8 @@ These libraries are compatible with:
 - MSYS2 UCRT64 toolchain
 - Any MinGW toolchain using UCRT
 
-NOT compatible with:
-- Standard MinGW-w64 (uses MSVCRT, not UCRT)
-- MSVC (use Windows/pluq/ instead)
+Note: The pluq directory contains both MinGW (.a) and MSVC (.lib) libraries
+sharing the same headers, similar to other Windows dependencies like SDL2.
 
 NOTE: nng 1.11 requires UCRT on Windows (same as nng 2.x).
 EOF
@@ -194,6 +193,6 @@ echo ""
 ls -lh "$OUTPUT_DIR/lib/x64/"
 echo ""
 echo "To use these libraries, update Makefile.w32/w64:"
-echo "  CFLAGS += -I../Windows/pluq-mingw/include"
-echo "  LDFLAGS += -L../Windows/pluq-mingw/lib/x86 (or x64)"
+echo "  CFLAGS += -I../Windows/pluq/include"
+echo "  LDFLAGS += -L../Windows/pluq/lib/x86 (or x64)"
 echo "  PLUQ_LIBS = -lnng -lflatccrt"
