@@ -13,6 +13,11 @@ of the License, or (at your option) any later version.
 #include "pluq.h"
 #include <string.h>
 
+// nng 1.x protocol headers
+#include <nng/protocol/reqrep0/rep.h>
+#include <nng/protocol/pubsub0/pub.h>
+#include <nng/protocol/pipeline0/pull.h>
+
 // ============================================================================
 // FULL IMPLEMENTATION (requires nng + flatcc libraries)
 // ============================================================================

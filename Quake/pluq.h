@@ -47,7 +47,7 @@ typedef struct {
 	nng_dialer resources_dialer, gameplay_dialer, input_dialer;
 	qboolean is_backend, is_frontend, initialized;
 } pluq_context_t;
-#endif
+
 // Input command structure
 typedef struct
 {
