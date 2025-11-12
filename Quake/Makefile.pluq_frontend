@@ -57,6 +57,8 @@ CPUFLAGS=
 LDFLAGS?=
 DFLAGS ?=
 CFLAGS ?= -Wall -Wno-trigraphs
+CFLAGS += -I.  # For flatcc headers
+CFLAGS += -DPLUQ_FRONTEND
 CFLAGS += -D_FILE_OFFSET_BITS=64
 CFLAGS += $(call check_gcc,-std=gnu11,)
 CFLAGS += $(call check_gcc,-Werror=format,)
@@ -171,13 +173,29 @@ ifeq ($(USE_CODEC_UMX),1)
 CFLAGS+= -DUSE_CODEC_UMX
 endif
 
+# nng and FlatCC libraries (for PluQ IPC)
+# Check for local dependencies first, then system
+LOCAL_DEPS_DIR := $(wildcard dependencies)
+
+ifneq ($(LOCAL_DEPS_DIR),)
+    ifneq ($(wildcard dependencies/lib/libnng*),)
+        CFLAGS += -Idependencies/include
+        NNG_LIBS = -Ldependencies/lib -lnng -lflatccrt
+    endif
+endif
+
+# Fallback to system if no local deps found
+ifeq ($(NNG_LIBS),)
+    NNG_LIBS = -lnng -lflatccrt
+endif
+
 ifeq ($(HOST_OS),haiku)
 COMMON_LIBS= -lGL -ldl
 else
 COMMON_LIBS= -lGL -ldl -lm
 endif
 
-LIBS = $(COMMON_LIBS) $(NET_LIBS) $(CODECLIBS)
+LIBS = $(COMMON_LIBS) $(NET_LIBS) $(CODECLIBS) $(NNG_LIBS)
 
 # name of this makefile, so we can use it as a dependency
 MAKEFILE := Makefile.pluq_frontend
@@ -218,7 +236,6 @@ GLOBJS = \
 	r_part.o \
 	r_world.o \
 	gl_screen.o \
-	gl_shaders.o \
 	gl_sky.o \
 	gl_warp.o \
 	$(SYSOBJ_GL_VID) \
@@ -253,9 +270,7 @@ OBJS = strlcat.o \
 	wad.o \
 	cmd.o \
 	common.o \
-	steam.o \
 	pluq.o \
-	json.o \
 	miniz.o \
 	crc.o \
 	cvar.o \
@@ -263,7 +278,7 @@ OBJS = strlcat.o \
 	host_pluq_frontend.o \
 	mathlib.o \
 	zone.o \
-	stubs_pluq_frontend.o \
+	stubs_pluq_server.o \
 	$(SYSOBJ_SYS) $(SYSOBJ_MAIN)
 
 # PluQ Frontend: Exclude these from backend:
@@ -282,7 +297,7 @@ OBJS += $(SYSOBJ_RES)
 
 .PHONY:	clean debug release
 
-DEFAULT_TARGET = ironwail-pluq-frontend
+DEFAULT_TARGET = quakespasm-pluq-frontend
 all: $(DEFAULT_TARGET)
 
 %.d:	%.c $(MAKEFILE)
@@ -292,12 +307,12 @@ all: $(DEFAULT_TARGET)
 	@echo "Compiling $<" && \
 	$(CC) $(DFLAGS) -c $(CFLAGS) $(SDL_CFLAGS) -o $@ $<
 
-ironwail-pluq-frontend:	$(OBJS) $(MAKEFILE)
+quakespasm-pluq-frontend:	$(OBJS) $(MAKEFILE)
 	@echo "Linking $@" && \
 	$(LINKER) $(OBJS) $(LDFLAGS) $(LIBS) $(SDL_LIBS) -o $@
 	$(call do_strip,$@)
 
-release:	ironwail-pluq-frontend
+release:	quakespasm-pluq-frontend
 debug:
 	$(error Use "make -f Makefile.pluq_frontend DEBUG=1")
 
