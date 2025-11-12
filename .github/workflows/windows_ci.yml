@@ -24,6 +24,10 @@ jobs:
         echo "PLATFORM_ALT=$platform_alt" >> ${env:GITHUB_ENV}
         echo "PLATFORM_SHORT=$platform_short" >> ${env:GITHUB_ENV}
         echo "ForceImportBeforeCppTargets=${env:GITHUB_WORKSPACE}\Windows\VisualStudio\custom_build.props" >> ${env:GITHUB_ENV}
+    - name: Build PluQ libraries (nng 1.11 + flatcc)
+      run: |
+        cd Windows
+        pwsh -File build-pluq-libs.ps1
     - name: Build
       run: |
         $vswhere = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe"
