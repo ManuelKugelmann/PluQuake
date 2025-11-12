@@ -14,6 +14,12 @@ jobs:
     steps:
     - uses: actions/checkout@v4
 
+    - name: Install Dependencies
+      run: brew install cmake ninja libvorbis mad sdl2
+
+    - name: Build NNG and FlatCC for PluQ
+      run: cd Quake && ./download-dependencies.sh
+
     - name: Build ${{ matrix.architecture }}
       shell: bash
       run: |

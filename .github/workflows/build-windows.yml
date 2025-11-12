@@ -15,6 +15,11 @@ jobs:
     - uses: actions/checkout@v4
     - uses: microsoft/setup-msbuild@v2
 
+    - name: Build PluQ libraries (nng + flatcc)
+      run: |
+        cd Windows
+        pwsh -File build-pluq-libs.ps1
+
     - name: Build ${{ matrix.platform }}
       run: |
         $options = @( `

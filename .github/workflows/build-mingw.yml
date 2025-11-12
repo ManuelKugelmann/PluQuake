@@ -5,7 +5,7 @@ on: [push, pull_request]
 jobs:
   build-linux:
     name: Build MinGW
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
       matrix:
@@ -18,8 +18,19 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Dependencies
-        run: sudo apt update && sudo apt install gcc-mingw-w64-${{ matrix.config.package }}
+      - name: Install LLVM-MinGW (UCRT)
+        run: |
+          wget -q https://github.com/mstorsjo/llvm-mingw/releases/download/20251104/llvm-mingw-20251104-ucrt-ubuntu-22.04-x86_64.tar.xz
+          sudo tar -xf llvm-mingw-20251104-ucrt-ubuntu-22.04-x86_64.tar.xz -C /opt
+          sudo mkdir -p /opt/llvm-mingw
+          sudo mv /opt/llvm-mingw-20251104-ucrt-ubuntu-22.04-x86_64 /opt/llvm-mingw/
+          rm llvm-mingw-20251104-ucrt-ubuntu-22.04-x86_64.tar.xz
+
+      - name: Build PluQ libraries for MinGW
+        run: |
+          cd Windows
+          chmod +x build-pluq-mingw.sh
+          ./build-pluq-mingw.sh
 
       - name: Build MinGW ${{ matrix.config.target }}
         run: |
