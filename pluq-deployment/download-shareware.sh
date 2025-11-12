@@ -18,7 +18,8 @@ if [ -f "id1/pak0.pak" ]; then
     exit 0
 fi
 
-echo "Downloading Quake pak files (~23 MB)..."
+echo "Downloading Quake pak files from archive.org (~23 MB)..."
+echo "(Note: dosgamesarchive.com would be preferred but doesn't work through proxy)"
 wget -q --show-progress -O /tmp/quake-paks.zip \
     "https://archive.org/download/quake_pak_202306/quake_pak.zip"
 
