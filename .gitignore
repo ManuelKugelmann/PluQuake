@@ -11,3 +11,5 @@ Quake/run-with-downloaded-libs.sh
 build/
 /.vs
 /out/
+Windows/build-pluq-mingw/
+Windows/build-pluq-mingw-ucrt/
