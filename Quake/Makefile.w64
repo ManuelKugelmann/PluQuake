@@ -99,6 +99,11 @@ else
 CFLAGS     += -DWITHOUT_CURL
 endif
 
+# PluQ IPC libraries (nng + flatcc)
+CFLAGS     += -I../Windows/pluq/include
+LDFLAGS    += -L../Windows/pluq/lib/x64
+PLUQ_LIBS   = -lnng -lflatccrt
+
 ifneq ($(VORBISLIB),vorbis)
 ifneq ($(VORBISLIB),tremor)
 $(error Invalid VORBISLIB setting)
@@ -179,7 +184,7 @@ CFLAGS+= $(CODEC_INC)
 
 COMMON_LIBS= -lopengl32 -lwinmm -luuid -lole32
 
-LIBS = $(COMMON_LIBS) $(NET_LIBS) $(CODEC_LINK) $(CODECLIBS)
+LIBS = $(COMMON_LIBS) $(NET_LIBS) $(CODEC_LINK) $(CODECLIBS) $(PLUQ_LIBS)
 
 # name of this makefile, so we can use it as a dependency
 MAKEFILE := $(lastword $(MAKEFILE_LIST))
