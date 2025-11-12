@@ -31,30 +31,39 @@ jobs:
 
     - name: Verify build output
       run: |
-        if [ ! -f "Windows/pluq-mingw/include/nng/nng.h" ]; then
+        if [ ! -f "Windows/pluq/include/nng/nng.h" ]; then
           echo "ERROR: nng headers not found"
           exit 1
         fi
-        if [ ! -f "Windows/pluq-mingw/lib/x64/libnng.a" ]; then
+        if [ ! -f "Windows/pluq/lib/x64/libnng.a" ]; then
           echo "ERROR: x64 libnng.a not found"
           exit 1
         fi
-        if [ ! -f "Windows/pluq-mingw/lib/x64/libflatccrt.a" ]; then
+        if [ ! -f "Windows/pluq/lib/x64/libflatccrt.a" ]; then
           echo "ERROR: x64 libflatccrt.a not found"
           exit 1
         fi
+        if [ ! -f "Windows/pluq/lib/x86/libnng.a" ]; then
+          echo "ERROR: x86 libnng.a not found"
+          exit 1
+        fi
+        if [ ! -f "Windows/pluq/lib/x86/libflatccrt.a" ]; then
+          echo "ERROR: x86 libflatccrt.a not found"
+          exit 1
+        fi
         echo "✓ All MinGW libraries built successfully!"
-        ls -lh Windows/pluq-mingw/lib/x64/
+        ls -lh Windows/pluq/lib/x64/
+        ls -lh Windows/pluq/lib/x86/
 
     - name: Commit and push binaries
       run: |
         git config user.name "github-actions[bot]"
         git config user.email "github-actions[bot]@users.noreply.github.com"
-        git add Windows/pluq-mingw/
+        git add Windows/pluq/lib/
         git status
         if git diff --staged --quiet; then
           echo "No changes to commit"
         else
-          git commit -m "Update MinGW PluQ precompiled libraries (nng 1.11 + flatcc)"
+          git commit -m "Update MinGW PluQ libraries (nng 1.11 + flatcc)"
           git push
         fi
