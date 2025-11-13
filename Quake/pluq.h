@@ -10,19 +10,27 @@ of the License, or (at your option) any later version.
 #ifndef _PLUQ_H_
 #define _PLUQ_H_
 
-// pluq.h -- PluQ Inter-Process Communication via nng + FlatBuffers
+// pluq.h -- PluQ Shared Definitions
+// Used by both backend (pluq_backend.c) and frontend (pluq_frontend.c)
 // Three-channel architecture: Resources, Gameplay, Input
 
 #include "quakedef.h"
-
 #include <nng/nng.h>
 
 // Include generated FlatBuffers C headers
 #include "pluq_reader.h"
 #include "pluq_builder.h"
 
+// nng 1.x protocol headers (needed by both backend and frontend)
+#include <nng/protocol/reqrep0/req.h>
+#include <nng/protocol/reqrep0/rep.h>
+#include <nng/protocol/pubsub0/pub.h>
+#include <nng/protocol/pubsub0/sub.h>
+#include <nng/protocol/pipeline0/push.h>
+#include <nng/protocol/pipeline0/pull.h>
+
 // ============================================================================
-// CHANNEL ENDPOINTS
+// CHANNEL ENDPOINTS (shared between backend and frontend)
 // ============================================================================
 
 #define PLUQ_URL_RESOURCES  "tcp://127.0.0.1:9001"
@@ -30,23 +38,8 @@ of the License, or (at your option) any later version.
 #define PLUQ_URL_INPUT      "tcp://127.0.0.1:9003"
 
 // ============================================================================
-// PLUQ MODE (Simplified: enabled/disabled)
-// Main binary: PluQ IPC enabled or disabled
-// Frontend binary: Uses separate entry point (main_pluq_frontend.c)
+// SHARED TYPE DEFINITIONS
 // ============================================================================
-
-// ============================================================================
-// NNG CONTEXT
-// ============================================================================
-
-typedef struct {
-	nng_socket resources_rep, resources_req;
-	nng_socket gameplay_pub, gameplay_sub;
-	nng_socket input_pull, input_push;
-	nng_listener resources_listener, gameplay_listener, input_listener;
-	nng_dialer resources_dialer, gameplay_dialer, input_dialer;
-	qboolean is_backend, is_frontend, initialized;
-} pluq_context_t;
 
 // Input command structure
 typedef struct
@@ -70,40 +63,8 @@ typedef struct
 } pluq_stats_t;
 
 // ============================================================================
-// PUBLIC API
+// SHARED HELPER FUNCTIONS
 // ============================================================================
-
-// Initialize/Shutdown
-void PluQ_Init(void);
-void PluQ_Shutdown(void);
-
-// Enable/Disable IPC
-qboolean PluQ_IsEnabled(void);
-void PluQ_Enable(void);
-void PluQ_Disable(void);
-
-// Backend API (main binary)
-void PluQ_BroadcastWorldState(void);
-qboolean PluQ_HasPendingInput(void);
-void PluQ_ProcessInputCommands(void);
-void PluQ_Move(usercmd_t *cmd);
-void PluQ_ApplyViewAngles(void);
-
-// Frontend API moved to pluq_frontend.h
-// (PluQ_Frontend_ReceiveWorldState, PluQ_Frontend_ApplyReceivedState,
-//  PluQ_Frontend_SendInputCommand, PluQ_Frontend_Move, PluQ_Frontend_ApplyViewAngles)
-
-void PluQ_GetStats(pluq_stats_t *stats);
-void PluQ_ResetStats(void);
-
-// Backend transport layer (main binary)
-qboolean PluQ_Backend_SendResource(const void *flatbuf, size_t size);
-qboolean PluQ_Backend_PublishFrame(const void *flatbuf, size_t size);
-qboolean PluQ_Backend_ReceiveInput(void **flatbuf_out, size_t *size_out);
-
-// Frontend transport layer moved to pluq_frontend.h
-// (PluQ_Frontend_RequestResource, PluQ_Frontend_ReceiveResource,
-//  PluQ_Frontend_ReceiveFrame, PluQ_Frontend_SendInput)
 
 // vec3_t conversion helpers
 static inline PluQ_Vec3_t QuakeVec3_To_FB(const vec3_t v)
@@ -117,5 +78,10 @@ static inline void FB_Vec3_To_Quake(const PluQ_Vec3_t *fb_vec, vec3_t v)
 {
 	memcpy(v, fb_vec, sizeof(PluQ_Vec3_t));
 }
+
+// Statistics (shared between backend and frontend)
+void PluQ_GetStats(pluq_stats_t *stats);
+void PluQ_SetStats(const pluq_stats_t *stats);
+void PluQ_ResetStats(void);
 
 #endif // _PLUQ_H_
