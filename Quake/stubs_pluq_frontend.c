@@ -174,6 +174,7 @@ char *PL_GetClipboardData (void) { return NULL; }
 
 // Config variables (declared in client.h as cvar_t, defined here)
 cvar_t cfg_unbindall = {"cfg_unbindall","1",CVAR_ARCHIVE};
+cvar_t developer = {"developer","0",CVAR_NONE};
 
 // Global variables - rendering/screen related
 int glwidth = 640;
@@ -196,3 +197,106 @@ qpic_t *pic_ovr = NULL;
 
 // SIMD flag
 qboolean use_simd = false;
+
+// ============================================================================
+// Host variables and functions (from host.c)
+// ============================================================================
+
+quakeparms_t *host_parms = NULL;
+qboolean host_initialized = false;
+double host_frametime = 0.016;
+double realtime = 0.0;
+byte *host_colormap = NULL;
+int minimum_memory = 0;
+
+cvar_t skill = {"skill","1",CVAR_NONE};
+cvar_t teamplay = {"teamplay","0",CVAR_NOTIFY};
+qboolean noclip_anglehack = false;
+
+void Host_Error (const char *error, ...)
+{
+	va_list argptr;
+	char string[1024];
+
+	va_start (argptr, error);
+	q_vsnprintf (string, sizeof(string), error, argptr);
+	va_end (argptr);
+	Sys_Error ("Host_Error: %s", string);
+}
+
+void Host_WriteConfiguration (void) {}
+void Host_ShutdownServer (qboolean crash) { (void)crash; }
+void Host_InitLocal (void) {}
+void Host_Resetdemos (void) {}
+double Host_GetFrameInterval (void) { return 0.016; }
+
+void ExtraMaps_NewGame (void) {}
+void DemoList_Rebuild (void) {}
+
+// ============================================================================
+// Network variables and functions (from net_main.c / net_dgrm.c)
+// ============================================================================
+
+sizebuf_t net_message;
+qboolean ipxAvailable = false;
+qboolean tcpipAvailable = false;
+int DEFAULTnet_hostport = 26000;
+int net_hostport = 26000;
+char my_tcpip_address[64] = "127.0.0.1";
+char my_ipx_address[64] = "00:00:00:00:00:00";
+qboolean slistSilent = false;
+qboolean slistLocal = false;
+qboolean slistInProgress = false;
+int hostCacheCount = 0;
+
+void NET_Poll (void) {}
+void NET_Slist_f (void) {}
+void NET_SlistSort (void) {}
+qboolean NET_CanSendMessage (struct qsocket_s *sock) { (void)sock; return false; }
+int NET_SendMessage (struct qsocket_s *sock, sizebuf_t *data) { (void)sock; (void)data; return -1; }
+const char *NET_SlistPrintServer (int n) { (void)n; return ""; }
+const char *NET_SlistPrintServerName (int n) { (void)n; return ""; }
+
+// ============================================================================
+// Client functions (from cl_input.c, cl_main.c)
+// ============================================================================
+
+void CL_AccumulateCmd (void) {}
+void BGM_Update (void) {}
+
+// ============================================================================
+// Server variables and functions (from sv_main.c)
+// ============================================================================
+
+// server.h declares these types, but we're stubbing them here
+// We use empty placeholder structs and cast them
+server_t sv;
+server_static_t svs;
+
+cvar_t hostname = {"hostname", "UNNAMED", CVAR_NONE};
+cvar_t coop = {"coop", "0", CVAR_NONE};
+cvar_t fraglimit = {"fraglimit", "0", CVAR_NOTIFY | CVAR_SERVERINFO};
+cvar_t timelimit = {"timelimit", "0", CVAR_NOTIFY | CVAR_SERVERINFO};
+
+void Host_Quit_f (void) { Sys_Quit(); }
+
+// ============================================================================
+// Developer stats (from host.c / glquake.h)
+// ============================================================================
+
+devstats_t dev_stats, dev_peakstats;
+overflowtimes_t dev_overflows;
+
+// ============================================================================
+// Extra levels, mod list, demo list (from quakedef.h)
+// ============================================================================
+
+filelist_item_t *extralevels = NULL;
+filelist_item_t *modlist = NULL;
+filelist_item_t *demolist = NULL;
+
+// ============================================================================
+// Key functions
+// ============================================================================
+
+void Key_UpdateForDest (void) {}

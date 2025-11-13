@@ -10,7 +10,8 @@ of the License, or (at your option) any later version.
 #ifndef _PLUQ_H_
 #define _PLUQ_H_
 
-// pluq.h -- PluQ Inter-Process Communication via nng + FlatBuffers
+// pluq.h -- PluQ Shared Definitions
+// Used by both backend (pluq_backend.c) and frontend (pluq_frontend.c)
 // Three-channel architecture: Resources, Gameplay, Input
 
 #include "quakedef.h"
@@ -20,8 +21,16 @@ of the License, or (at your option) any later version.
 #include "pluq_reader.h"
 #include "pluq_builder.h"
 
+// nng 1.x protocol headers (needed by both backend and frontend)
+#include <nng/protocol/reqrep0/req.h>
+#include <nng/protocol/reqrep0/rep.h>
+#include <nng/protocol/pubsub0/pub.h>
+#include <nng/protocol/pubsub0/sub.h>
+#include <nng/protocol/pipeline0/push.h>
+#include <nng/protocol/pipeline0/pull.h>
+
 // ============================================================================
-// CHANNEL ENDPOINTS
+// CHANNEL ENDPOINTS (shared between backend and frontend)
 // ============================================================================
 
 #define PLUQ_URL_RESOURCES  "tcp://127.0.0.1:9001"
@@ -29,29 +38,8 @@ of the License, or (at your option) any later version.
 #define PLUQ_URL_INPUT      "tcp://127.0.0.1:9003"
 
 // ============================================================================
-// PLUQ OPERATION MODES
+// SHARED TYPE DEFINITIONS
 // ============================================================================
-
-typedef enum
-{
-	PLUQ_MODE_DISABLED,
-	PLUQ_MODE_BACKEND,
-	PLUQ_MODE_FRONTEND,
-	PLUQ_MODE_BOTH
-} pluq_mode_t;
-
-// ============================================================================
-// NNG CONTEXT
-// ============================================================================
-
-typedef struct {
-	nng_socket resources_rep, resources_req;
-	nng_socket gameplay_pub, gameplay_sub;
-	nng_socket input_pull, input_push;
-	nng_listener resources_listener, gameplay_listener, input_listener;
-	nng_dialer resources_dialer, gameplay_dialer, input_dialer;
-	qboolean is_backend, is_frontend, initialized;
-} pluq_context_t;
 
 // Input command structure
 typedef struct
@@ -75,41 +63,8 @@ typedef struct
 } pluq_stats_t;
 
 // ============================================================================
-// PUBLIC API
+// SHARED HELPER FUNCTIONS
 // ============================================================================
-
-void PluQ_Init(void);
-qboolean PluQ_Initialize(pluq_mode_t mode);
-void PluQ_Shutdown(void);
-
-pluq_mode_t PluQ_GetMode(void);
-void PluQ_SetMode(pluq_mode_t mode);
-qboolean PluQ_IsEnabled(void);
-qboolean PluQ_IsBackend(void);
-qboolean PluQ_IsFrontend(void);
-qboolean PluQ_IsHeadless(void);
-
-void PluQ_BroadcastWorldState(void);
-qboolean PluQ_ReceiveWorldState(void);
-void PluQ_ApplyReceivedState(void);
-
-qboolean PluQ_HasPendingInput(void);
-void PluQ_ProcessInputCommands(void);
-void PluQ_SendInput(usercmd_t *cmd);
-void PluQ_Move(usercmd_t *cmd);
-void PluQ_ApplyViewAngles(void);
-
-void PluQ_GetStats(pluq_stats_t *stats);
-void PluQ_ResetStats(void);
-
-// Transport layer
-qboolean PluQ_Backend_SendResource(const void *flatbuf, size_t size);
-qboolean PluQ_Frontend_RequestResource(uint32_t resource_id);
-qboolean PluQ_Frontend_ReceiveResource(void **flatbuf_out, size_t *size_out);
-qboolean PluQ_Backend_PublishFrame(const void *flatbuf, size_t size);
-qboolean PluQ_Frontend_ReceiveFrame(void **flatbuf_out, size_t *size_out);
-qboolean PluQ_Frontend_SendInput(const void *flatbuf, size_t size);
-qboolean PluQ_Backend_ReceiveInput(void **flatbuf_out, size_t *size_out);
 
 // vec3_t conversion helpers
 static inline PluQ_Vec3_t QuakeVec3_To_FB(const vec3_t v)
@@ -124,9 +79,12 @@ static inline void FB_Vec3_To_Quake(const PluQ_Vec3_t *fb_vec, vec3_t v)
 	memcpy(v, fb_vec, sizeof(PluQ_Vec3_t));
 }
 
-// Test Frontend Helper Functions
-void PluQ_Frontend_SendCommand(const char *cmd);
-qboolean PluQ_Frontend_ReceiveWorldState(void);
-void PluQ_Frontend_ApplyReceivedState(void);
+// Shared initialization
+void PluQ_Init(void);
+
+// Statistics (shared between backend and frontend)
+void PluQ_GetStats(pluq_stats_t *stats);
+void PluQ_SetStats(const pluq_stats_t *stats);
+void PluQ_ResetStats(void);
 
 #endif // _PLUQ_H_

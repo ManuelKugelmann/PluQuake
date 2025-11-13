@@ -184,7 +184,7 @@ ifneq ($(LOCAL_DEPS_DIR),)
         PLUQLIBS= -Ldependencies/lib -lnng -lflatccrt
     endif
 endif
-PLUQOBJS= pluq.o
+PLUQOBJS= pluq.o pluq_backend.o
 endif
 
 LIBS = $(COMMON_LIBS) $(NET_LIBS) $(CODECLIBS) $(PLUQLIBS)

@@ -14,6 +14,9 @@ USE_SDL2=1
 ### Disable Curl for frontend (not needed)
 USE_CURL=0
 
+# Include dependency detection (supports local and system libs)
+-include Makefile.deps
+
 ### Enable/Disable codecs for streaming music support
 USE_CODEC_WAVE=1
 USE_CODEC_FLAC=0
@@ -57,7 +60,6 @@ CPUFLAGS=
 LDFLAGS?=
 DFLAGS ?=
 CFLAGS ?= -Wall -Wno-trigraphs
-CFLAGS += -I.  # For flatcc headers
 CFLAGS += -DPLUQ_FRONTEND
 CFLAGS += -D_FILE_OFFSET_BITS=64
 CFLAGS += $(call check_gcc,-std=gnu11,)
@@ -173,29 +175,27 @@ ifeq ($(USE_CODEC_UMX),1)
 CFLAGS+= -DUSE_CODEC_UMX
 endif
 
-# nng and FlatCC libraries (for PluQ IPC)
-# Check for local dependencies first, then system
-LOCAL_DEPS_DIR := $(wildcard dependencies)
-
-ifneq ($(LOCAL_DEPS_DIR),)
-    ifneq ($(wildcard dependencies/lib/libnng*),)
-        CFLAGS += -Idependencies/include
-        NNG_LIBS = -Ldependencies/lib -lnng -lflatccrt
-    endif
-endif
-
-# Fallback to system if no local deps found
-ifeq ($(NNG_LIBS),)
-    NNG_LIBS = -lnng -lflatccrt
-endif
-
 ifeq ($(HOST_OS),haiku)
 COMMON_LIBS= -lGL -ldl
 else
 COMMON_LIBS= -lGL -ldl -lm
 endif
 
-LIBS = $(COMMON_LIBS) $(NET_LIBS) $(CODECLIBS) $(NNG_LIBS)
+# PluQ IPC libraries for frontend
+PLUQ_LIBS=
+PLUQ_OBJS=
+CFLAGS+= -DUSE_PLUQ
+CFLAGS+= -I.
+LOCAL_DEPS_DIR := $(wildcard dependencies)
+ifneq ($(LOCAL_DEPS_DIR),)
+    ifneq ($(wildcard dependencies/lib/libnng*),)
+        CFLAGS += -Idependencies/include
+        PLUQ_LIBS= -Ldependencies/lib -lnng -lflatccrt
+    endif
+endif
+PLUQ_OBJS= pluq.o pluq_frontend.o
+
+LIBS = $(COMMON_LIBS) $(NET_LIBS) $(CODECLIBS) $(PLUQ_LIBS)
 
 # name of this makefile, so we can use it as a dependency
 MAKEFILE := Makefile.pluq_frontend
@@ -223,7 +223,8 @@ SYSOBJ_INPUT = in_sdl.o
 SYSOBJ_GL_VID= gl_vidsdl.o
 # PluQ Frontend: No networking objects (net_bsd.o, net_udp.o)
 SYSOBJ_NET =
-SYSOBJ_SYS = pl_linux.o sys_sdl_unix.o
+# PluQ Frontend: No platform-specific objects (stubs_pluq_frontend.o provides these)
+SYSOBJ_SYS = sys_sdl_unix.o
 # PluQ Frontend: Use frontend-specific main
 SYSOBJ_MAIN= main_pluq_frontend.o
 
@@ -271,6 +272,7 @@ OBJS = strlcat.o \
 	cmd.o \
 	common.o \
 	pluq.o \
+	pluq_frontend.o \
 	miniz.o \
 	crc.o \
 	cvar.o \
@@ -278,7 +280,7 @@ OBJS = strlcat.o \
 	host_pluq_frontend.o \
 	mathlib.o \
 	zone.o \
-	stubs_pluq_server.o \
+	stubs_pluq_frontend.o \
 	$(SYSOBJ_SYS) $(SYSOBJ_MAIN)
 
 # PluQ Frontend: Exclude these from backend:
@@ -297,7 +299,7 @@ OBJS += $(SYSOBJ_RES)
 
 .PHONY:	clean debug release
 
-DEFAULT_TARGET = quakespasm-pluq-frontend
+DEFAULT_TARGET = ironwail-pluq-frontend
 all: $(DEFAULT_TARGET)
 
 %.d:	%.c $(MAKEFILE)
@@ -307,12 +309,12 @@ all: $(DEFAULT_TARGET)
 	@echo "Compiling $<" && \
 	$(CC) $(DFLAGS) -c $(CFLAGS) $(SDL_CFLAGS) -o $@ $<
 
-quakespasm-pluq-frontend:	$(OBJS) $(MAKEFILE)
+ironwail-pluq-frontend:	$(OBJS) $(MAKEFILE)
 	@echo "Linking $@" && \
 	$(LINKER) $(OBJS) $(LDFLAGS) $(LIBS) $(SDL_LIBS) -o $@
 	$(call do_strip,$@)
 
-release:	quakespasm-pluq-frontend
+release:	ironwail-pluq-frontend
 debug:
 	$(error Use "make -f Makefile.pluq_frontend DEBUG=1")
 

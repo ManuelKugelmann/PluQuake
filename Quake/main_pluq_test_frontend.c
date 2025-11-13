@@ -12,6 +12,7 @@ of the License, or (at your option) any later version.
 
 #include "quakedef.h"
 #include "pluq.h"
+#include "pluq_frontend.h"
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>

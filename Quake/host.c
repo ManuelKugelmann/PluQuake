@@ -25,7 +25,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "bgmusic.h"
 #ifdef USE_PLUQ
-#include "pluq.h"
+#include "pluq_backend.h"
 #endif
 #include <setjmp.h>
 
@@ -725,7 +725,7 @@ void _Host_Frame (float time)
 
 #ifdef USE_PLUQ
 	// PluQ: Process input commands from IPC frontend (backend receives input from frontend)
-	if (PluQ_IsBackend())
+	if (PluQ_Backend_IsEnabled())
 		PluQ_ProcessInputCommands();
 #endif
 
@@ -746,24 +746,13 @@ void _Host_Frame (float time)
 // fetch results from server
 	if (cls.state == ca_connected)
 	{
-#ifdef USE_PLUQ
-		// PluQ: Frontend mode receives state from backend via IPC
-		if (PluQ_IsFrontend())
-		{
-			if (PluQ_ReceiveWorldState())
-				PluQ_ApplyReceivedState();
-		}
-		else
-#endif
-		{
-			// Normal operation: read from local server/network
-			CL_ReadFromServer ();
-		}
+		// Normal operation: read from local server/network
+		CL_ReadFromServer ();
 	}
 
 #ifdef USE_PLUQ
 	// PluQ: Backend mode broadcasts world state via IPC (purely additive)
-	if (PluQ_IsBackend())
+	if (PluQ_Backend_IsEnabled())
 		PluQ_BroadcastWorldState();
 #endif
 
@@ -772,7 +761,8 @@ void _Host_Frame (float time)
 		time1 = Sys_DoubleTime ();
 
 #ifdef USE_PLUQ
-	if (!PluQ_IsHeadless())
+	// Skip rendering in headless backend mode
+	if (!PluQ_Backend_IsEnabled())
 	{
 #endif
 		SCR_UpdateScreen ();
@@ -917,7 +907,7 @@ void Host_Init (void)
 	LOC_Init (); // for 2021 rerelease support.
 
 #ifdef USE_PLUQ
-	PluQ_Init (); // Initialize PluQ IPC system
+	PluQ_Backend_Init (); // Initialize PluQ IPC backend
 
 	// PluQ: Auto-enable backend mode when using -pluq
 	// Note: -pluq requires -headless to be used together
@@ -927,7 +917,8 @@ void Host_Init (void)
 			Sys_Error ("PluQ backend mode requires -headless flag");
 
 		Con_Printf ("PluQ backend mode enabled\n");
-		PluQ_Initialize (PLUQ_MODE_BACKEND);
+		if (!PluQ_Backend_Enable())
+			Sys_Error ("Failed to enable PluQ backend");
 	}
 #endif
 
@@ -996,7 +987,7 @@ void Host_Shutdown(void)
 	LOG_Close ();
 
 #ifdef USE_PLUQ
-	PluQ_Shutdown (); // PluQ: Shutdown IPC subsystem
+	PluQ_Backend_Shutdown (); // PluQ: Shutdown IPC backend
 #endif
 
 	LOC_Shutdown ();

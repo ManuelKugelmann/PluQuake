@@ -23,8 +23,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 
 #include "quakedef.h"
 #include "bgmusic.h"
-#ifdef USE_PLUQ
-#include "pluq.h"
+#if defined(USE_PLUQ) && !defined(PLUQ_FRONTEND)
+#include "pluq_backend.h"
 #endif
 
 // we need to declare some mouse variables here, because the menu system
@@ -708,23 +708,17 @@ void CL_SendCmd (void)
 	// allow mice or other external controllers to add to the move
 		IN_Move (&cmd);
 
-#ifdef USE_PLUQ
+#if defined(USE_PLUQ) && !defined(PLUQ_FRONTEND)
 	// PluQ: Backend mode - apply IPC input from frontend
-		if (PluQ_IsBackend())
-		{
-			PluQ_Move (&cmd);
-			PluQ_ApplyViewAngles ();
-		}
+	if (PluQ_Backend_IsEnabled())
+	{
+		PluQ_Move (&cmd);
+		PluQ_ApplyViewAngles ();
+	}
 #endif
 
 	// send the unreliable message
-#ifdef USE_PLUQ
-	// PluQ: If in frontend mode, send input to backend via IPC
-		if (PluQ_IsFrontend())
-			PluQ_SendInput(&cmd);
-		else
-#endif
-			CL_SendMove (&cmd);
+		CL_SendMove (&cmd);
 	}
 
 	if (cls.demoplayback)
