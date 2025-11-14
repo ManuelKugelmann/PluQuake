@@ -9,14 +9,14 @@ This directory contains precompiled libraries for PluQ IPC on Linux.
 ## Build Information
 **Build Date**: 2025-11-14
 **Platform**: Linux x86_64
-**Compiler**: gcc 13
+**Compiler**: gcc 11
 **Build Type**: Release (static libraries)
 
 ## Contents
 
 ### lib/
 - libnng.a (1.2M) - nng v1.11 (nanomsg-next-generation) static library
-- libflatccrt.a (199K) - flatcc v0.6.1 (FlatBuffers for C) runtime library
+- libflatccrt.a (203K) - flatcc v0.6.1 (FlatBuffers for C) runtime library
 - cmake/ - CMake package configuration files
 
 ### include/
