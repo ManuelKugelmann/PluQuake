@@ -17,4 +17,9 @@ pluq-deployment/test-monitor
 pluq-deployment/test-command
 pluq-deployment/test-input-receiver
 pluq-deployment/test-backend-simulator
-pluq-deployment/*.log
+
+# Log and temporary files
+*.log
+*.tmp
+*~
+.DS_Store
