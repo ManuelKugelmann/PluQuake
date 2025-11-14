@@ -106,7 +106,7 @@ EOF
     echo "Step 2/2: Building flatcc..."
 
     if [ ! -d "flatcc" ]; then
-        git clone --depth 1 https://github.com/dvidelabs/flatcc.git
+        git clone --depth 1 -b v0.6.1 https://github.com/dvidelabs/flatcc.git
     fi
 
     mkdir -p "flatcc/build-$ARCH"
@@ -160,7 +160,7 @@ These libraries were built with LLVM-MinGW which has UCRT support.
 
 Contents:
 - nng 1.11 (stable, static library)
-- flatcc runtime (static library)
+- flatcc 0.6.1 (runtime, static library)
 
 Directory structure:
 lib/x86/     - 32-bit libraries (libnng.a, libflatccrt.a)
