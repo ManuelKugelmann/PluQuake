@@ -263,85 +263,25 @@ echo "  - nng: Using stable 1.11 instead of unstable 2.0.x alpha"
 echo "  - flatcc: not available in apt"
 echo ""
 
-# Build nng and flatcc from source
-NNG_VERSION="1.11"
-FLATCC_VERSION="0.6.1"
+# Export DEPS_DIR for the build scripts
+export DEPS_DIR
 
-# Create new work directory for this step
-WORK_DIR="/tmp/pluq_build_$$"
-mkdir -p "$WORK_DIR"
-cd "$WORK_DIR"
-
-# Download nng
-echo "Downloading nng v$NNG_VERSION..."
-if command -v wget > /dev/null; then
-    wget -q --show-progress -O nng.tar.gz "https://github.com/nanomsg/nng/archive/refs/tags/v${NNG_VERSION}.tar.gz" 2>&1 || echo "wget failed"
-elif command -v curl > /dev/null; then
-    curl -L --progress-bar -o nng.tar.gz "https://github.com/nanomsg/nng/archive/refs/tags/v${NNG_VERSION}.tar.gz" || echo "curl failed"
-fi
-
-if [ -f nng.tar.gz ]; then
-    tar xzf nng.tar.gz
-    NNG_SOURCE="$WORK_DIR/nng-${NNG_VERSION}"
-
-    # Build nng
-    echo "  Building nng..."
-    NNG_BUILD_DIR="$WORK_DIR/build-nng"
-    mkdir -p "$NNG_BUILD_DIR"
-    cd "$NNG_BUILD_DIR"
-    cmake \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX="$DEPS_DIR" \
-        -DBUILD_SHARED_LIBS=OFF \
-        -DNNG_TESTS=OFF \
-        -DNNG_TOOLS=OFF \
-        -DNNG_ENABLE_TLS=OFF \
-        "$NNG_SOURCE" > /dev/null 2>&1
-    cmake --build . --config Release -j$(nproc) > /dev/null 2>&1
-    cmake --install . > /dev/null 2>&1
-    echo "  ✓ nng built and installed"
+# Call the specialized build scripts
+if [ -f "$SCRIPT_DIR/build-nng.sh" ]; then
+    "$SCRIPT_DIR/build-nng.sh"
 else
-    echo "  ✗ nng download failed"
+    echo "ERROR: build-nng.sh not found"
+    echo "Expected at: $SCRIPT_DIR/build-nng.sh"
     exit 1
 fi
-echo ""
 
-# Download flatcc
-cd "$WORK_DIR"
-echo "Downloading flatcc v$FLATCC_VERSION..."
-if command -v wget > /dev/null; then
-    wget -q --show-progress -O flatcc.tar.gz "https://github.com/dvidelabs/flatcc/archive/refs/tags/v${FLATCC_VERSION}.tar.gz" 2>&1 || echo "wget failed"
-elif command -v curl > /dev/null; then
-    curl -L --progress-bar -o flatcc.tar.gz "https://github.com/dvidelabs/flatcc/archive/refs/tags/v${FLATCC_VERSION}.tar.gz" || echo "curl failed"
-fi
-
-if [ -f flatcc.tar.gz ]; then
-    tar xzf flatcc.tar.gz
-    FLATCC_SOURCE="$WORK_DIR/flatcc-${FLATCC_VERSION}"
-
-    # Build flatcc
-    echo "  Building flatcc..."
-    FLATCC_BUILD_DIR="$WORK_DIR/build-flatcc"
-    mkdir -p "$FLATCC_BUILD_DIR"
-    cd "$FLATCC_BUILD_DIR"
-    cmake \
-        -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_INSTALL_PREFIX="$DEPS_DIR" \
-        -DFLATCC_INSTALL=ON \
-        -DFLATCC_RTONLY=ON \
-        "$FLATCC_SOURCE" > /dev/null 2>&1
-    cmake --build . --config Release -j$(nproc) > /dev/null 2>&1
-    cmake --install . > /dev/null 2>&1
-    echo "  ✓ flatcc built and installed"
+if [ -f "$SCRIPT_DIR/build-flatcc.sh" ]; then
+    "$SCRIPT_DIR/build-flatcc.sh"
 else
-    echo "  ✗ flatcc download failed"
+    echo "ERROR: build-flatcc.sh not found"
+    echo "Expected at: $SCRIPT_DIR/build-flatcc.sh"
     exit 1
 fi
-echo ""
-
-# Cleanup
-cd /
-rm -rf "$WORK_DIR"
 
 # =============================================================================
 # Final Summary and Wrapper Script
