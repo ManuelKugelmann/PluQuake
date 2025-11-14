@@ -25,7 +25,7 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "bgmusic.h"
 #include "steam.h"
-#include "pluq.h"
+#include "pluq_backend.h"
 #include <setjmp.h>
 
 /*
@@ -1481,7 +1481,7 @@ void Host_Init (void)
 
 	LOC_Init (); // for 2021 rerelease support.
 
-	PluQ_Init ();
+	PluQ_Backend_Init ();
 
 	Hunk_AllocName (0, "-HOST_HUNKLEVEL-");
 	host_hunklevel = Hunk_LowMark ();
@@ -1577,7 +1577,7 @@ void Host_Shutdown(void)
 
 	LOG_Close ();
 
-	PluQ_Shutdown (); // PluQ: Shutdown IPC subsystem
+	PluQ_Backend_Shutdown (); // PluQ: Shutdown IPC subsystem
 
 	LOC_Shutdown ();
 }

@@ -67,18 +67,37 @@ ifneq ($(LOCAL_DEPS_DIR),)
 endif
 
 # nng + flatcc configuration (PluQ IPC) - handle like other libraries
-# Priority: 1) Local dependencies/, 2) System
+# Priority: 1) Platform prebuilt libs, 2) Local dependencies/, 3) System
 PLUQ_LIBS :=
 
-ifneq ($(LOCAL_DEPS_DIR),)
-    ifneq ($(wildcard dependencies/lib/libnng*),)
-        $(info [DEPS] Using local nng from dependencies/)
-        CFLAGS += -Idependencies/include
-        PLUQ_LIBS := -Ldependencies/lib -lnng -lflatccrt -Wl,-rpath,dependencies/lib
+# Detect platform for prebuilt libraries
+ifeq ($(HOST_OS),linux)
+    PLATFORM_PLUQ_DIR := ../Linux/pluq
+else ifeq ($(HOST_OS),darwin)
+    PLATFORM_PLUQ_DIR := ../macOS/pluq
+endif
+
+# Check for platform-specific prebuilt libraries first
+ifneq ($(PLATFORM_PLUQ_DIR),)
+    ifneq ($(wildcard $(PLATFORM_PLUQ_DIR)/lib/libnng*),)
+        $(info [DEPS] Using prebuilt nng from $(PLATFORM_PLUQ_DIR)/)
+        CFLAGS += -I$(PLATFORM_PLUQ_DIR)/include
+        PLUQ_LIBS := -L$(PLATFORM_PLUQ_DIR)/lib -lnng -lflatccrt -Wl,-rpath,$(PLATFORM_PLUQ_DIR)/lib
     endif
 endif
 
-# Fallback to system nng if available
+# Fallback to local dependencies/ (from download-dependencies.sh)
+ifeq ($(PLUQ_LIBS),)
+    ifneq ($(LOCAL_DEPS_DIR),)
+        ifneq ($(wildcard dependencies/lib/libnng*),)
+            $(info [DEPS] Using local nng from dependencies/)
+            CFLAGS += -Idependencies/include
+            PLUQ_LIBS := -Ldependencies/lib -lnng -lflatccrt -Wl,-rpath,dependencies/lib
+        endif
+    endif
+endif
+
+# Final fallback to system nng if available
 ifeq ($(PLUQ_LIBS),)
     PKG_CONFIG := $(shell command -v pkg-config 2>/dev/null)
     ifneq ($(PKG_CONFIG),)

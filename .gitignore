@@ -13,3 +13,13 @@ build/
 /out/
 Windows/build-pluq-mingw/
 Windows/build-pluq-mingw-ucrt/
+tests/test-monitor
+tests/test-command
+tests/test-input-receiver
+tests/test-backend-simulator
+
+# Log and temporary files
+*.log
+*.tmp
+*~
+.DS_Store

@@ -1,0 +1,52 @@
+name: Rebuild Windows Prebuilt Libraries
+
+on:
+  workflow_dispatch:  # Manual trigger
+  push:
+    paths:
+      - 'Windows/build-pluq-mingw.sh'
+      - 'Quake/build-nng.sh'
+      - 'Quake/build-flatcc.sh'
+      - '.github/workflows/rebuild-windows-libs.yml'
+
+jobs:
+  rebuild:
+    name: Rebuild Windows/pluq/
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Build Tools
+        run: sudo apt update && sudo apt install cmake make git
+
+      - name: Install LLVM-MinGW (UCRT)
+        run: |
+          wget -q https://github.com/mstorsjo/llvm-mingw/releases/download/20251104/llvm-mingw-20251104-ucrt-ubuntu-22.04-x86_64.tar.xz
+          sudo tar -xf llvm-mingw-20251104-ucrt-ubuntu-22.04-x86_64.tar.xz -C /opt
+          sudo mkdir -p /opt/llvm-mingw
+          sudo mv /opt/llvm-mingw-20251104-ucrt-ubuntu-22.04-x86_64 /opt/llvm-mingw/
+          rm llvm-mingw-20251104-ucrt-ubuntu-22.04-x86_64.tar.xz
+
+      - name: Rebuild Prebuilt Libraries (both x86 and x64)
+        run: |
+          export PATH="/opt/llvm-mingw/llvm-mingw-20251104-ucrt-ubuntu-22.04-x86_64/bin:$PATH"
+          cd Windows && ./build-pluq-mingw.sh
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          git diff --quiet Windows/pluq/ || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Commit updated libraries
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Windows/pluq/
+          git commit -m "Auto-rebuild Windows prebuilt libraries (nng 1.11, flatcc 0.6.1)
+
+          Triggered by changes to build scripts.
+          Built with: LLVM-MinGW (UCRT)
+          Architectures: x86, x64
+          Build date: $(date -u +%Y-%m-%d)"
+          git push

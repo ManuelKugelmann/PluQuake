@@ -263,16 +263,23 @@ echo "  - nng: Using stable 1.11 instead of unstable 2.0.x alpha"
 echo "  - flatcc: not available in apt"
 echo ""
 
-# Export DEPS_DIR and WORK_DIR for the build script
+# Export DEPS_DIR for the build scripts
 export DEPS_DIR
-export WORK_DIR
 
-# Call the specialized build script
-if [ -f "$SCRIPT_DIR/build-nng-flatcc.sh" ]; then
-    "$SCRIPT_DIR/build-nng-flatcc.sh"
+# Call the specialized build scripts
+if [ -f "$SCRIPT_DIR/build-nng.sh" ]; then
+    "$SCRIPT_DIR/build-nng.sh"
 else
-    echo "ERROR: build-nng-flatcc.sh not found"
-    echo "Expected at: $SCRIPT_DIR/build-nng-flatcc.sh"
+    echo "ERROR: build-nng.sh not found"
+    echo "Expected at: $SCRIPT_DIR/build-nng.sh"
+    exit 1
+fi
+
+if [ -f "$SCRIPT_DIR/build-flatcc.sh" ]; then
+    "$SCRIPT_DIR/build-flatcc.sh"
+else
+    echo "ERROR: build-flatcc.sh not found"
+    echo "Expected at: $SCRIPT_DIR/build-flatcc.sh"
     exit 1
 fi
 

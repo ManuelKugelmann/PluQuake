@@ -7,10 +7,29 @@ namespace PluQ;
 // COMMON TYPES
 // ============================================================================
 
+// High-precision Vec3 for resources/models
 struct Vec3 {
   x: float;
   y: float;
   z: float;
+}
+
+// Coordinate type matching Quake's MSG_WriteCoord
+// 16-bit integers with 3 fractional bits (divide by 8.0 to get float)
+// Range: -4096 to +4096 units with 0.125 precision
+struct Vec3Coord {
+  x: int16;
+  y: int16;
+  z: int16;
+}
+
+// Angle type matching Quake's MSG_WriteAngle
+// 8-bit unsigned (multiply by 360.0/256.0 to get degrees)
+// Precision: 1.40625 degrees
+struct Vec3Angle {
+  pitch: uint8;
+  yaw: uint8;
+  roll: uint8;
 }
 
 // ============================================================================
@@ -28,7 +47,7 @@ enum ResourceType : byte {
   Lightmap = 5
 }
 
-// Frontend → Backend: Request a specific resource
+// Frontend  to  Backend: Request a specific resource
 table ResourceRequest {
   resource_type: ResourceType;
   resource_id: uint32;
@@ -97,7 +116,7 @@ union ResourceData {
   Lightmap
 }
 
-// Backend → Frontend: Resource response (REP)
+// Backend  to  Frontend: Resource response (REP)
 table ResourceResponse {
   resource_id: uint32;
   data: ResourceData;
@@ -125,24 +144,24 @@ table Disconnected {
 
 // Entity in the game world
 table Entity {
-  origin: Vec3;
-  angles: Vec3;
+  origin: Vec3Coord;
+  angles: Vec3Angle;
   model_id: uint16;
   frame: byte;
   colormap: byte;
   skin: byte;
   effects: uint32;
-  alpha: float;
+  alpha: ubyte;           // 0-255
 }
 
 // Frame update (sent every tick)
 table FrameUpdate {
   frame_number: uint32;
-  timestamp: double;
+  timestamp: float;
 
   // View state
-  view_origin: Vec3;
-  view_angles: Vec3;
+  view_origin: Vec3Coord;
+  view_angles: Vec3Angle;
 
   // Player stats
   health: int16;
@@ -176,15 +195,15 @@ table GameplayMessage {
 
 table InputCommand {
   sequence: uint32;
-  timestamp: double;
+  timestamp: float;
 
   // Movement
-  forward_move: float;
-  side_move: float;
-  up_move: float;
+  forward_move: int16;
+  side_move: int16;
+  up_move: int16;
 
   // View
-  view_angles: Vec3;
+  view_angles: Vec3Angle;
 
   // Buttons (bitfield)
   buttons: uint32;

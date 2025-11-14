@@ -1,136 +1,97 @@
 #!/bin/bash
-# Build flatcc from source
-# flatcc: not available in apt at all
+# Build flatcc library
+# Called by download-dependencies.sh
+# Expects: DEPS_DIR environment variable to be set
 
 set -e
 
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-DEPS_DIR="${DEPS_DIR:-$SCRIPT_DIR/dependencies}"
-WORK_DIR="${WORK_DIR:-/tmp/flatcc_build_$$}"
+# Version
+FLATCC_VERSION="0.6.1"
 
-echo "=========================================="
-echo "  Building flatcc from source"
-echo "=========================================="
-echo ""
+# Check environment
+if [ -z "$DEPS_DIR" ]; then
+    echo "ERROR: DEPS_DIR environment variable not set"
+    echo "This script should be called from download-dependencies.sh"
+    exit 1
+fi
 
-# Create directories
-mkdir -p "$DEPS_DIR/lib" "$DEPS_DIR/include" "$WORK_DIR"
+# Create work directory
+WORK_DIR="/tmp/pluq_build_flatcc_$$"
+mkdir -p "$WORK_DIR"
 cd "$WORK_DIR"
 
-# Check build tools
-if ! command -v cmake > /dev/null; then
-    echo "ERROR: cmake not found"
-    echo "Install with: sudo apt-get install cmake build-essential"
-    exit 1
-fi
-
-if ! command -v make > /dev/null; then
-    echo "ERROR: make not found"
-    echo "Install with: sudo apt-get install build-essential"
-    exit 1
-fi
-
-echo "Build tools: OK (cmake, make, gcc)"
+echo "Build directory: $WORK_DIR"
+echo "Install directory: $DEPS_DIR"
 echo ""
 
 # =============================================================================
-# Build flatcc (FlatBuffers for C)
+# Download flatcc
 # =============================================================================
 
-echo "Building flatcc (FlatBuffers for C) v0.6.1..."
-echo "  Why build from source:"
-echo "    - Not available in apt"
-echo "    - No pre-built binaries in GitHub releases"
-echo "    - Requires: -DFLATCC_INSTALL=ON cmake option"
-echo ""
-
-FLATCC_SUCCESS=0
-
-# Try git clone first (preferred method)
-if command -v git > /dev/null; then
-    echo "  Method: git clone (fast, shallow)"
-    git clone --depth 1 --branch v0.6.1 https://github.com/dvidelabs/flatcc.git flatcc-build 2>&1 | tail -3
-    FLATCC_SOURCE="git"
+echo "Downloading flatcc v$FLATCC_VERSION..."
+if command -v wget > /dev/null; then
+    wget -q --show-progress -O flatcc.tar.gz "https://github.com/dvidelabs/flatcc/archive/refs/tags/v${FLATCC_VERSION}.tar.gz" 2>&1 || echo "wget failed"
+elif command -v curl > /dev/null; then
+    curl -L --progress-bar -o flatcc.tar.gz "https://github.com/dvidelabs/flatcc/archive/refs/tags/v${FLATCC_VERSION}.tar.gz" || echo "curl failed"
 else
-    # Fallback to tarball download
-    echo "  Method: tarball download"
-    FLATCC_URL="https://github.com/dvidelabs/flatcc/archive/refs/tags/v0.6.1.tar.gz"
-    if command -v wget > /dev/null; then
-        wget -q --show-progress -O flatcc.tar.gz "$FLATCC_URL" 2>&1
-    elif command -v curl > /dev/null; then
-        curl -L --progress-bar -o flatcc.tar.gz "$FLATCC_URL"
-    else
-        echo "  ERROR: Neither git, wget, nor curl available"
-        exit 1
-    fi
-
-    if [ -f flatcc.tar.gz ]; then
-        tar xzf flatcc.tar.gz
-        mv flatcc-0.6.1 flatcc-build
-        FLATCC_SOURCE="tarball"
-    fi
-fi
-
-if [ -d flatcc-build ]; then
-    cd flatcc-build
-    mkdir -p build && cd build
-
-    echo "  Configuring with cmake (runtime only)..."
-    cmake -DCMAKE_INSTALL_PREFIX="$DEPS_DIR" \
-          -DCMAKE_BUILD_TYPE=Release \
-          -DFLATCC_RTONLY=ON \
-          -DFLATCC_INSTALL=ON \
-          .. > cmake.log 2>&1
-
-    if [ $? -eq 0 ]; then
-        echo "  Building (make -j$(nproc))..."
-        make -j$(nproc) > make.log 2>&1
-
-        if [ $? -eq 0 ]; then
-            echo "  Installing to $DEPS_DIR..."
-            make install > install.log 2>&1
-
-            if [ $? -eq 0 ]; then
-                FLATCC_SUCCESS=1
-                echo "  ✓ flatcc built successfully (source: $FLATCC_SOURCE)"
-                echo ""
-                echo "Files installed:"
-                ls -lh "$DEPS_DIR/lib/libflatccrt.a" 2>/dev/null | awk '{print "  " $9 " (" $5 ")"}'
-            fi
-        fi
-    fi
-
-    if [ $FLATCC_SUCCESS -eq 0 ]; then
-        echo "  ✗ flatcc build FAILED"
-        echo "  Check logs in: $WORK_DIR/flatcc-build/build/"
-        echo ""
-        echo "Last 20 lines of cmake.log:"
-        tail -20 "$WORK_DIR/flatcc-build/build/cmake.log" 2>/dev/null || echo "  (log not found)"
-        echo ""
-        echo "Last 20 lines of make.log:"
-        tail -20 "$WORK_DIR/flatcc-build/build/make.log" 2>/dev/null || echo "  (log not found)"
-        exit 1
-    fi
-
-    cd ../..
-else
-    echo "  ✗ Failed to obtain flatcc source code"
+    echo "ERROR: Neither wget nor curl available"
     exit 1
 fi
 
+if [ ! -f flatcc.tar.gz ]; then
+    echo "ERROR: flatcc download failed"
+    exit 1
+fi
+
+tar xzf flatcc.tar.gz
+FLATCC_SOURCE="$WORK_DIR/flatcc-${FLATCC_VERSION}"
+
+# =============================================================================
+# Build flatcc
+# =============================================================================
+
+echo "  Building flatcc..."
+FLATCC_BUILD_DIR="$WORK_DIR/build-flatcc"
+mkdir -p "$FLATCC_BUILD_DIR"
+cd "$FLATCC_BUILD_DIR"
+
+cmake \
+    -DCMAKE_BUILD_TYPE=Release \
+    -DCMAKE_INSTALL_PREFIX="$DEPS_DIR" \
+    -DFLATCC_INSTALL=ON \
+    -DFLATCC_RTONLY=ON \
+    "$FLATCC_SOURCE" > cmake.log 2>&1
+
+if [ $? -ne 0 ]; then
+    echo "ERROR: flatcc CMake configure failed. Last 20 lines:"
+    tail -20 cmake.log
+    exit 1
+fi
+
+cmake --build . --config Release -j$(nproc) > build.log 2>&1
+
+if [ $? -ne 0 ]; then
+    echo "ERROR: flatcc build failed. Last 20 lines:"
+    tail -20 build.log
+    exit 1
+fi
+
+cmake --install . > install.log 2>&1
+
+if [ $? -ne 0 ]; then
+    echo "ERROR: flatcc install failed. Last 20 lines:"
+    tail -20 install.log
+    exit 1
+fi
+
+echo "  ✓ flatcc built and installed"
+echo ""
+
+# =============================================================================
 # Cleanup
+# =============================================================================
+
 cd /
 rm -rf "$WORK_DIR"
 
-echo ""
-echo "=========================================="
-echo "  Build Complete"
-echo "=========================================="
-echo ""
-echo "Installation directory: $DEPS_DIR"
-echo ""
-echo "Library built:"
-echo "  ✓ flatcc v0.6.1 (199KB static library)"
-echo ""
-echo "Headers installed to: $DEPS_DIR/include/flatcc/"
-echo ""
+echo "flatcc build complete!"
