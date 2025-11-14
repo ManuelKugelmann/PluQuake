@@ -1,20 +1,9 @@
 name: Linux CI
 on: [push, pull_request]
 jobs:
-  rebuild-pluq-libs:
-    name: Rebuild PluQ Libraries
-    runs-on: ubuntu-22.04
-    steps:
-    - uses: actions/checkout@v4
-    - name: Install Build Tools
-      run: sudo apt update && sudo apt install cmake gcc g++ make git
-    - name: Rebuild Prebuilt Libraries (Linux/pluq/)
-      run: cd Linux && ./build-pluq-libs.sh
-
   build:
     name: Linux / ${{ matrix.compiler }}
     runs-on: ubuntu-22.04
-    needs: rebuild-pluq-libs
     strategy:
       fail-fast: false
       matrix:
