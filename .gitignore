@@ -13,10 +13,10 @@ build/
 /out/
 Windows/build-pluq-mingw/
 Windows/build-pluq-mingw-ucrt/
-pluq-deployment/test-monitor
-pluq-deployment/test-command
-pluq-deployment/test-input-receiver
-pluq-deployment/test-backend-simulator
+tests/test-monitor
+tests/test-command
+tests/test-input-receiver
+tests/test-backend-simulator
 
 # Log and temporary files
 *.log

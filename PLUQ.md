@@ -44,7 +44,7 @@ cd Quake
 
 ### Gameplay Channel Test
 ```bash
-cd pluq-deployment
+cd tests
 ./test-backend-simulator &
 ./test-monitor-simple
 ```
