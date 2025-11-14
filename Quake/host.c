@@ -1481,7 +1481,7 @@ void Host_Init (void)
 
 	LOC_Init (); // for 2021 rerelease support.
 
-	PluQ_Init ();
+	PluQ_Backend_Init ();
 
 	Hunk_AllocName (0, "-HOST_HUNKLEVEL-");
 	host_hunklevel = Hunk_LowMark ();
@@ -1577,7 +1577,7 @@ void Host_Shutdown(void)
 
 	LOG_Close ();
 
-	PluQ_Shutdown (); // PluQ: Shutdown IPC subsystem
+	PluQ_Backend_Shutdown (); // PluQ: Shutdown IPC subsystem
 
 	LOC_Shutdown ();
 }
