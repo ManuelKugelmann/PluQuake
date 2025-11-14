@@ -1,0 +1,42 @@
+name: Rebuild macOS Prebuilt Libraries
+
+on:
+  workflow_dispatch:  # Manual trigger
+  push:
+    paths:
+      - 'macOS/build-pluq-libs.sh'
+      - 'Quake/build-nng.sh'
+      - 'Quake/build-flatcc.sh'
+      - '.github/workflows/rebuild-macos-libs.yml'
+
+jobs:
+  rebuild:
+    name: Rebuild macOS/pluq/
+    runs-on: macos-12
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Build Tools
+        run: brew install cmake
+
+      - name: Rebuild Prebuilt Libraries
+        run: cd macOS && ./build-pluq-libs.sh
+
+      - name: Check for changes
+        id: check_changes
+        run: |
+          git diff --quiet macOS/pluq/ || echo "changed=true" >> $GITHUB_OUTPUT
+
+      - name: Commit updated libraries
+        if: steps.check_changes.outputs.changed == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add macOS/pluq/
+          git commit -m "Auto-rebuild macOS prebuilt libraries (nng 1.11, flatcc 0.6.1)
+
+          Triggered by changes to build scripts.
+          Built on: macos-12
+          Architecture: $(uname -m)
+          Build date: $(date -u +%Y-%m-%d)"
+          git push

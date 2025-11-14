@@ -10,7 +10,5 @@ jobs:
     - uses: actions/checkout@v4
     - name: Install Dependencies
       run: brew install cmake libvorbis mad sdl2
-    - name: Build Dependencies (nng, flatcc, audio libs)
-      run: cd Quake && ./download-dependencies.sh
-    - name: Build Ironwail
+    - name: Build Ironwail (using prebuilt macOS/pluq/ libraries)
       run: make --jobs=3 --keep-going --directory=Quake COMMON_LIBS="-framework CoreFoundation -framework IOKit -framework OpenGL -Wl,-alias -Wl,_SDL_main -Wl,_main"
