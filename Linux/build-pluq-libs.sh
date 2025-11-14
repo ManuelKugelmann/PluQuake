@@ -183,7 +183,7 @@ cmake \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX="$FLATCC_BUILD_DIR/install" \
     -DFLATCC_INSTALL=ON \
-    -DFLATCC_RTONLY=ON \
+    -DFLATCC_RTONLY=OFF \
     "$FLATCC_SOURCE" > cmake.log 2>&1
 
 if [ $? -ne 0 ]; then
@@ -228,6 +228,14 @@ cp -r "$FLATCC_BUILD_DIR/install/include/flatcc" "$OUTPUT_DIR/include/"
 echo "Copying libraries..."
 cp "$NNG_BUILD_DIR/install/lib/libnng.a" "$OUTPUT_DIR/lib/"
 cp "$FLATCC_BUILD_DIR/install/lib/libflatccrt.a" "$OUTPUT_DIR/lib/"
+
+# Binaries (flatcc compiler)
+echo "Copying flatcc compiler..."
+mkdir -p "$OUTPUT_DIR/bin"
+if [ -f "$FLATCC_BUILD_DIR/install/bin/flatcc" ]; then
+    cp "$FLATCC_BUILD_DIR/install/bin/flatcc" "$OUTPUT_DIR/bin/"
+    chmod +x "$OUTPUT_DIR/bin/flatcc"
+fi
 
 # Copy CMake files if they exist
 if [ -d "$NNG_BUILD_DIR/install/lib/cmake" ]; then
