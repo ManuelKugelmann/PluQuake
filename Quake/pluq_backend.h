@@ -41,5 +41,6 @@ qboolean PluQ_HasPendingInput(void);
 void PluQ_ProcessInputCommands(void);
 void PluQ_Move(usercmd_t *cmd);
 void PluQ_ApplyViewAngles(void);
+void PluQ_ProcessResourceRequests(void);
 
 #endif // _PLUQ_BACKEND_H_

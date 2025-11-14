@@ -415,3 +415,126 @@ void PluQ_ApplyViewAngles(void)
 	// Apply view angles from frontend input
 	VectorCopy(current_input.view_angles, cl.viewangles);
 }
+
+// ============================================================================
+// RESOURCE STREAMING
+// ============================================================================
+
+void PluQ_ProcessResourceRequests(void)
+{
+	nng_msg *msg;
+	int rv;
+
+	if (!PluQ_Backend_IsEnabled())
+		return;
+
+	// Check for resource requests (non-blocking)
+	rv = nng_recvmsg(backend_ctx.resources_rep, &msg, NNG_FLAG_NONBLOCK);
+	if (rv != 0)
+	{
+		if (rv != NNG_EAGAIN)  // EAGAIN means no messages
+			Con_Printf("PluQ Backend: Failed to receive resource request: %s\n", nng_strerror(rv));
+		return;
+	}
+
+	// Parse ResourceRequest
+	void *request_buf = nng_msg_body(msg);
+	size_t request_size = nng_msg_len(msg);
+
+	PluQ_ResourceRequest_table_t request = PluQ_ResourceRequest_as_root(request_buf);
+	if (!request)
+	{
+		Con_Printf("PluQ Backend: Invalid resource request\n");
+		nng_msg_free(msg);
+		return;
+	}
+
+	PluQ_ResourceType_enum_t resource_type = PluQ_ResourceRequest_resource_type(request);
+	uint32_t resource_id = PluQ_ResourceRequest_resource_id(request);
+	const char *resource_name = PluQ_ResourceRequest_resource_name(request);
+
+	Con_DPrintf("PluQ Backend: Resource request - type=%d, id=%u, name=%s\n",
+		resource_type, resource_id, resource_name ? resource_name : "(null)");
+
+	// Free request message
+	nng_msg_free(msg);
+
+	// Build response
+	flatcc_builder_t builder;
+	flatcc_builder_init(&builder);
+
+	PluQ_ResourceResponse_start(&builder);
+	PluQ_ResourceResponse_resource_id_add(&builder, resource_id);
+
+	// Handle different resource types
+	switch (resource_type)
+	{
+	case PluQ_ResourceType_Texture:
+	{
+		// Load texture from WAD
+		if (resource_name && *resource_name)
+		{
+			lumpinfo_t *lump_info = NULL;
+			byte *lump_data = W_GetLumpName(resource_name, &lump_info);
+
+			if (lump_data && lump_info)
+			{
+				// qpic_t format: width, height, data
+				qpic_t *pic = (qpic_t *)lump_data;
+				int width = LittleLong(pic->width);
+				int height = LittleLong(pic->height);
+
+				// Build Texture table
+				flatbuffers_uint8_vec_ref_t pixels_ref = flatbuffers_uint8_vec_create(
+					&builder, pic->data, width * height);
+
+				PluQ_Texture_start(&builder);
+				PluQ_Texture_id_add(&builder, resource_id);
+				PluQ_Texture_name_add(&builder, flatbuffers_string_create_str(&builder, resource_name));
+				PluQ_Texture_width_add(&builder, (uint16_t)width);
+				PluQ_Texture_height_add(&builder, (uint16_t)height);
+				PluQ_Texture_format_add(&builder, 2);  // Indexed (palette-based)
+				PluQ_Texture_pixels_add(&builder, pixels_ref);
+				PluQ_Texture_ref_t texture_ref = PluQ_Texture_end(&builder);
+
+				// Add to response
+				PluQ_ResourceResponse_data_Texture_add(&builder, texture_ref);
+
+				Con_DPrintf("PluQ Backend: Sending texture '%s' (%dx%d, %d bytes)\n",
+					resource_name, width, height, width * height);
+			}
+			else
+			{
+				Con_Printf("PluQ Backend: Texture '%s' not found\n", resource_name);
+			}
+		}
+		break;
+	}
+
+	case PluQ_ResourceType_Model:
+	{
+		Con_DPrintf("PluQ Backend: Model streaming not yet implemented\n");
+		// TODO: Load model data and stream it
+		break;
+	}
+
+	default:
+		Con_Printf("PluQ Backend: Unsupported resource type %d\n", resource_type);
+		break;
+	}
+
+	PluQ_ResourceResponse_ref_t response_ref = PluQ_ResourceResponse_end(&builder);
+	PluQ_ResourceResponse_end_as_root(&builder);
+
+	// Finalize and send response
+	size_t response_size;
+	void *response_buf = flatcc_builder_finalize_buffer(&builder, &response_size);
+
+	if (response_buf)
+	{
+		PluQ_Backend_SendResource(response_buf, response_size);
+		flatcc_builder_aligned_free(response_buf);
+	}
+
+	flatcc_builder_clear(&builder);
+}

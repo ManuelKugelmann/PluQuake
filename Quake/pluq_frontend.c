@@ -391,3 +391,136 @@ void PluQ_Frontend_Move(usercmd_t *cmd)
 	// This function can be used to modify local movement before sending
 	// For now, it's a pass-through - movement is sent as-is via PluQ_Frontend_SendInputCommand()
 }
+
+// ============================================================================
+// RESOURCE STREAMING
+// ============================================================================
+
+typedef struct
+{
+	uint32_t resource_id;
+	PluQ_ResourceType_enum_t resource_type;
+	void *data;
+	size_t data_size;
+	qboolean valid;
+} received_resource_t;
+
+static received_resource_t received_resource = {0};
+
+qboolean PluQ_Frontend_RequestResource(PluQ_ResourceType_enum_t resource_type,
+                                        uint32_t resource_id,
+                                        const char *resource_name,
+                                        void **data_out,
+                                        size_t *size_out)
+{
+	if (!frontend_initialized)
+		return false;
+
+	Con_DPrintf("PluQ Frontend: Requesting resource type=%d, id=%u, name=%s\n",
+		resource_type, resource_id, resource_name ? resource_name : "(null)");
+
+	// Build ResourceRequest
+	flatcc_builder_t builder;
+	flatcc_builder_init(&builder);
+
+	PluQ_ResourceRequest_start(&builder);
+	PluQ_ResourceRequest_resource_type_add(&builder, resource_type);
+	PluQ_ResourceRequest_resource_id_add(&builder, resource_id);
+	if (resource_name && *resource_name)
+	{
+		PluQ_ResourceRequest_resource_name_add(&builder,
+			flatbuffers_string_create_str(&builder, resource_name));
+	}
+	PluQ_ResourceRequest_ref_t request_ref = PluQ_ResourceRequest_end(&builder);
+	PluQ_ResourceRequest_end_as_root(&builder);
+
+	// Finalize request buffer
+	size_t request_size;
+	void *request_buf = flatcc_builder_finalize_buffer(&builder, &request_size);
+
+	if (!request_buf)
+	{
+		flatcc_builder_clear(&builder);
+		return false;
+	}
+
+	// Send request (blocking REQ/REP pattern)
+	int rv = nng_send(frontend_ctx.resources_req, request_buf, request_size, 0);
+	flatcc_builder_aligned_free(request_buf);
+	flatcc_builder_clear(&builder);
+
+	if (rv != 0)
+	{
+		Con_Printf("PluQ Frontend: Failed to send resource request: %s\n", nng_strerror(rv));
+		return false;
+	}
+
+	// Receive response (blocking)
+	nng_msg *msg;
+	rv = nng_recvmsg(frontend_ctx.resources_req, &msg, 0);
+	if (rv != 0)
+	{
+		Con_Printf("PluQ Frontend: Failed to receive resource response: %s\n", nng_strerror(rv));
+		return false;
+	}
+
+	// Parse ResourceResponse
+	void *response_buf = nng_msg_body(msg);
+	size_t response_size = nng_msg_len(msg);
+
+	PluQ_ResourceResponse_table_t response = PluQ_ResourceResponse_as_root(response_buf);
+	if (!response)
+	{
+		Con_Printf("PluQ Frontend: Invalid resource response\n");
+		nng_msg_free(msg);
+		return false;
+	}
+
+	uint32_t response_id = PluQ_ResourceResponse_resource_id(response);
+	PluQ_ResourceData_union_type_t data_type = PluQ_ResourceResponse_data_type(response);
+
+	Con_DPrintf("PluQ Frontend: Received resource response id=%u, type=%d\n",
+		response_id, data_type);
+
+	// Extract resource data based on type
+	qboolean success = false;
+	if (data_type == PluQ_ResourceData_Texture)
+	{
+		PluQ_Texture_table_t texture = (PluQ_Texture_table_t)PluQ_ResourceResponse_data(response);
+		if (texture)
+		{
+			uint16_t width = PluQ_Texture_width(texture);
+			uint16_t height = PluQ_Texture_height(texture);
+			flatbuffers_uint8_vec_t pixels = PluQ_Texture_pixels(texture);
+			size_t pixels_len = flatbuffers_uint8_vec_len(pixels);
+
+			Con_DPrintf("PluQ Frontend: Received texture %dx%d (%zu bytes)\n",
+				width, height, pixels_len);
+
+			// Allocate and copy texture data
+			if (pixels_len > 0)
+			{
+				// Copy pixel data - caller must free
+				*data_out = malloc(pixels_len + 8); // +8 for width/height
+				if (*data_out)
+				{
+					// Store as qpic_t format
+					qpic_t *pic = (qpic_t *)(*data_out);
+					pic->width = width;
+					pic->height = height;
+					memcpy(pic->data, pixels, pixels_len);
+					*size_out = pixels_len + 8;
+					success = true;
+				}
+			}
+		}
+	}
+	else if (data_type == PluQ_ResourceData_Model)
+	{
+		Con_DPrintf("PluQ Frontend: Model data received (not yet processed)\n");
+		// TODO: Process model data
+	}
+
+	nng_msg_free(msg);
+	return success;
+}

@@ -1240,6 +1240,9 @@ void _Host_Frame (double time)
 // PluQ: Process input commands from IPC frontend (backend receives input from frontend)
 	PluQ_ProcessInputCommands();
 
+// PluQ: Process resource requests from IPC frontend (backend sends resources to frontend)
+	PluQ_ProcessResourceRequests();
+
 // process console commands
 	Cbuf_Execute ();
 
