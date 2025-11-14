@@ -21,6 +21,24 @@ static pluq_context_t frontend_ctx;
 static qboolean frontend_initialized = false;
 static uint32_t last_received_frame = 0;
 
+// Received frame state storage
+typedef struct
+{
+	uint32_t frame_number;
+	double timestamp;
+	vec3_t view_origin;
+	vec3_t view_angles;
+	int16_t health;
+	int16_t armor;
+	uint8_t weapon;
+	uint16_t ammo;
+	qboolean paused;
+	qboolean in_game;
+	qboolean valid;
+} received_frame_state_t;
+
+static received_frame_state_t received_state = {0};
+
 // ============================================================================
 // FRONTEND INITIALIZATION / SHUTDOWN
 // ============================================================================
@@ -256,12 +274,32 @@ qboolean PluQ_Frontend_ReceiveWorldState(void)
 	{
 		PluQ_FrameUpdate_table_t frame = (PluQ_FrameUpdate_table_t)event_value;
 
-		// Update last received frame
-		last_received_frame = PluQ_FrameUpdate_frame_number(frame);
+		// Parse and store frame data
+		received_state.frame_number = PluQ_FrameUpdate_frame_number(frame);
+		received_state.timestamp = PluQ_FrameUpdate_timestamp(frame);
 
-		// TODO: Store frame data for PluQ_Frontend_ApplyReceivedState()
-		// For now, just log
-		Con_DPrintf("PluQ Frontend: Received frame %u\n", last_received_frame);
+		// View state
+		const PluQ_Vec3_t *view_origin = PluQ_FrameUpdate_view_origin(frame);
+		const PluQ_Vec3_t *view_angles = PluQ_FrameUpdate_view_angles(frame);
+		if (view_origin)
+			FB_Vec3_To_Quake(view_origin, received_state.view_origin);
+		if (view_angles)
+			FB_Vec3_To_Quake(view_angles, received_state.view_angles);
+
+		// Player stats
+		received_state.health = PluQ_FrameUpdate_health(frame);
+		received_state.armor = PluQ_FrameUpdate_armor(frame);
+		received_state.weapon = PluQ_FrameUpdate_weapon(frame);
+		received_state.ammo = PluQ_FrameUpdate_ammo(frame);
+
+		// Game state
+		received_state.paused = PluQ_FrameUpdate_paused(frame);
+		received_state.in_game = PluQ_FrameUpdate_in_game(frame);
+		received_state.valid = true;
+
+		last_received_frame = received_state.frame_number;
+		Con_DPrintf("PluQ Frontend: Received frame %u (health=%d, armor=%d)\n",
+			last_received_frame, received_state.health, received_state.armor);
 	}
 	else if (event_type == PluQ_GameplayEvent_MapChanged)
 	{
@@ -282,8 +320,25 @@ qboolean PluQ_Frontend_ReceiveWorldState(void)
 
 void PluQ_Frontend_ApplyReceivedState(void)
 {
-	// TODO: Apply received state to local game
-	// This will update cl.* state based on received FrameUpdate
+	if (!frontend_initialized || !received_state.valid)
+		return;
+
+	// Apply view state
+	VectorCopy(received_state.view_origin, r_refdef.vieworg);
+	VectorCopy(received_state.view_angles, cl.viewangles);
+
+	// Apply player stats
+	cl.stats[STAT_HEALTH] = received_state.health;
+	cl.stats[STAT_ARMOR] = received_state.armor;
+	cl.stats[STAT_WEAPON] = received_state.weapon;
+	cl.stats[STAT_AMMO] = received_state.ammo;
+
+	// Apply game state
+	cl.paused = received_state.paused;
+	cl.time = received_state.timestamp;
+
+	// Note: Entity rendering would go here
+	// For now, frontend displays stats/HUD based on backend's authoritative state
 }
 
 void PluQ_Frontend_SendInputCommand(usercmd_t *cmd)
@@ -325,10 +380,14 @@ void PluQ_Frontend_SendInputCommand(usercmd_t *cmd)
 
 void PluQ_Frontend_ApplyViewAngles(void)
 {
-	// TODO: Apply view angles from received state
+	// Frontend receives view angles from backend via FrameUpdate
+	// This is applied in PluQ_Frontend_ApplyReceivedState()
+	// This function is a no-op for frontend (unlike backend which receives from frontend)
 }
 
 void PluQ_Frontend_Move(usercmd_t *cmd)
 {
-	// TODO: Process move command for frontend
+	// Frontend generates movement locally and sends to backend
+	// This function can be used to modify local movement before sending
+	// For now, it's a pass-through - movement is sent as-is via PluQ_Frontend_SendInputCommand()
 }
