@@ -12,6 +12,8 @@ jobs:
     - uses: actions/checkout@v4
     - name: Install Build Tools
       run: sudo apt update && sudo apt install cmake gcc g++ make git libcurl4-openssl-dev libsdl2-dev
+    - name: Rebuild Prebuilt Libraries (Linux/pluq/)
+      run: cd Linux && ./build-pluq-libs.sh
     - name: Build Dependencies (nng, flatcc, audio libs)
       run: cd Quake && ./download-dependencies.sh
     - name: Build Ironwail

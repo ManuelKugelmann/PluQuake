@@ -18,6 +18,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Install Build Tools
+        run: sudo apt update && sudo apt install cmake make git
+
       - name: Install LLVM-MinGW (UCRT)
         run: |
           wget -q https://github.com/mstorsjo/llvm-mingw/releases/download/20251104/llvm-mingw-20251104-ucrt-ubuntu-22.04-x86_64.tar.xz
@@ -25,6 +28,11 @@ jobs:
           sudo mkdir -p /opt/llvm-mingw
           sudo mv /opt/llvm-mingw-20251104-ucrt-ubuntu-22.04-x86_64 /opt/llvm-mingw/
           rm llvm-mingw-20251104-ucrt-ubuntu-22.04-x86_64.tar.xz
+
+      - name: Rebuild Prebuilt Libraries (Windows/pluq/)
+        run: |
+          export PATH="/opt/llvm-mingw/llvm-mingw-20251104-ucrt-ubuntu-22.04-x86_64/bin:$PATH"
+          cd Windows && ./build-pluq-mingw.sh
 
       - name: Build MinGW ${{ matrix.config.target }}
         run: |
