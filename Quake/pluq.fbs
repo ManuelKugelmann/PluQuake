@@ -7,15 +7,15 @@ namespace PluQ;
 // COMMON TYPES
 // ============================================================================
 
-// High-precision Vec3 (for resources/models - 12 bytes)
+// High-precision Vec3 for resources/models
 struct Vec3 {
   x: float;
   y: float;
   z: float;
 }
 
-// Optimized coordinate type matching Quake's MSG_WriteCoord (6 bytes)
-// Uses 16-bit integers with 3 fractional bits (divide by 8.0 to get float)
+// Coordinate type matching Quake's MSG_WriteCoord
+// 16-bit integers with 3 fractional bits (divide by 8.0 to get float)
 // Range: -4096 to +4096 units with 0.125 precision
 struct Vec3Coord {
   x: int16;
@@ -23,8 +23,8 @@ struct Vec3Coord {
   z: int16;
 }
 
-// Optimized angle type matching Quake's MSG_WriteAngle (3 bytes)
-// Uses 8-bit unsigned (multiply by 360.0/256.0 to get degrees)
+// Angle type matching Quake's MSG_WriteAngle
+// 8-bit unsigned (multiply by 360.0/256.0 to get degrees)
 // Precision: 1.40625 degrees
 struct Vec3Angle {
   pitch: uint8;
@@ -143,27 +143,25 @@ table Disconnected {
 }
 
 // Entity in the game world
-// Optimized to match Quake's entity_state_t size (~24 bytes vs original ~45 bytes)
 table Entity {
-  origin: Vec3Coord;      // 6 bytes (was 12 bytes)
-  angles: Vec3Angle;      // 3 bytes (was 12 bytes)
-  model_id: uint16;       // 2 bytes
-  frame: byte;            // 1 byte
-  colormap: byte;         // 1 byte
-  skin: byte;             // 1 byte
-  effects: uint32;        // 4 bytes
-  alpha: ubyte;           // 1 byte (0-255, was 4 bytes float)
+  origin: Vec3Coord;
+  angles: Vec3Angle;
+  model_id: uint16;
+  frame: byte;
+  colormap: byte;
+  skin: byte;
+  effects: uint32;
+  alpha: ubyte;           // 0-255
 }
 
 // Frame update (sent every tick)
-// Optimized for bandwidth efficiency
 table FrameUpdate {
   frame_number: uint32;
-  timestamp: float;          // 4 bytes (was 8 bytes double)
+  timestamp: float;
 
-  // View state (optimized)
-  view_origin: Vec3Coord;    // 6 bytes (was 12 bytes)
-  view_angles: Vec3Angle;    // 3 bytes (was 12 bytes)
+  // View state
+  view_origin: Vec3Coord;
+  view_angles: Vec3Angle;
 
   // Player stats
   health: int16;
@@ -197,15 +195,15 @@ table GameplayMessage {
 
 table InputCommand {
   sequence: uint32;
-  timestamp: float;           // 4 bytes (was 8 bytes double)
+  timestamp: float;
 
-  // Movement (optimized to match Quake's usercmd_t)
-  forward_move: int16;        // 2 bytes (was 4 bytes float)
-  side_move: int16;           // 2 bytes (was 4 bytes float)
-  up_move: int16;             // 2 bytes (was 4 bytes float)
+  // Movement
+  forward_move: int16;
+  side_move: int16;
+  up_move: int16;
 
-  // View (optimized)
-  view_angles: Vec3Angle;     // 3 bytes (was 12 bytes)
+  // View
+  view_angles: Vec3Angle;
 
   // Buttons (bitfield)
   buttons: uint32;
