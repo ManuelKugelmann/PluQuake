@@ -3,18 +3,9 @@ name: MinGW CI
 on: [push, pull_request]
 
 jobs:
-  build-linux:
-    name: Build MinGW
+  rebuild-pluq-libs:
+    name: Rebuild PluQ Libraries
     runs-on: ubuntu-22.04
-    strategy:
-      fail-fast: false
-      matrix:
-        config:
-          - target: win32
-            package: i686-win32
-          - target: win64
-            package: x86-64
-
     steps:
       - uses: actions/checkout@v4
 
@@ -29,10 +20,34 @@ jobs:
           sudo mv /opt/llvm-mingw-20251104-ucrt-ubuntu-22.04-x86_64 /opt/llvm-mingw/
           rm llvm-mingw-20251104-ucrt-ubuntu-22.04-x86_64.tar.xz
 
-      - name: Rebuild Prebuilt Libraries (Windows/pluq/)
+      - name: Rebuild Prebuilt Libraries (Windows/pluq/ - both x86 and x64)
         run: |
           export PATH="/opt/llvm-mingw/llvm-mingw-20251104-ucrt-ubuntu-22.04-x86_64/bin:$PATH"
           cd Windows && ./build-pluq-mingw.sh
+
+  build-mingw:
+    name: Build MinGW ${{ matrix.config.target }}
+    runs-on: ubuntu-22.04
+    needs: rebuild-pluq-libs
+    strategy:
+      fail-fast: false
+      matrix:
+        config:
+          - target: win32
+            package: i686-win32
+          - target: win64
+            package: x86-64
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install LLVM-MinGW (UCRT)
+        run: |
+          wget -q https://github.com/mstorsjo/llvm-mingw/releases/download/20251104/llvm-mingw-20251104-ucrt-ubuntu-22.04-x86_64.tar.xz
+          sudo tar -xf llvm-mingw-20251104-ucrt-ubuntu-22.04-x86_64.tar.xz -C /opt
+          sudo mkdir -p /opt/llvm-mingw
+          sudo mv /opt/llvm-mingw-20251104-ucrt-ubuntu-22.04-x86_64 /opt/llvm-mingw/
+          rm llvm-mingw-20251104-ucrt-ubuntu-22.04-x86_64.tar.xz
 
       - name: Build MinGW ${{ matrix.config.target }}
         run: |
