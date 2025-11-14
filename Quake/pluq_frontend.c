@@ -288,8 +288,39 @@ void PluQ_Frontend_ApplyReceivedState(void)
 
 void PluQ_Frontend_SendInputCommand(usercmd_t *cmd)
 {
-	// TODO: Build InputCommand FlatBuffer and send
-	// For now, stub
+	static uint32_t sequence = 0;
+
+	if (!frontend_initialized || !cmd)
+		return;
+
+	// Build InputCommand FlatBuffer
+	flatcc_builder_t builder;
+	flatcc_builder_init(&builder);
+
+	PluQ_Vec3_t view_angles = QuakeVec3_To_FB(cmd->viewangles);
+
+	PluQ_InputCommand_start(&builder);
+	PluQ_InputCommand_sequence_add(&builder, sequence++);
+	PluQ_InputCommand_timestamp_add(&builder, Sys_DoubleTime());
+	PluQ_InputCommand_forward_move_add(&builder, cmd->forwardmove);
+	PluQ_InputCommand_side_move_add(&builder, cmd->sidemove);
+	PluQ_InputCommand_up_move_add(&builder, cmd->upmove);
+	PluQ_InputCommand_view_angles_add(&builder, &view_angles);
+	// Note: buttons and impulse would be added here if available in usercmd_t
+	PluQ_InputCommand_end_as_root(&builder);
+
+	// Finalize buffer
+	size_t size;
+	void *buf = flatcc_builder_finalize_buffer(&builder, &size);
+
+	if (buf)
+	{
+		// Send to backend
+		PluQ_Frontend_SendInput(buf, size);
+		flatcc_builder_aligned_free(buf);
+	}
+
+	flatcc_builder_clear(&builder);
 }
 
 void PluQ_Frontend_ApplyViewAngles(void)

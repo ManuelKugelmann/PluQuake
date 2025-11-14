@@ -37,6 +37,10 @@ typedef struct
 static pluq_backend_context_t backend_ctx;
 static qboolean backend_enabled = false;
 
+// Input state from frontend
+static pluq_input_cmd_t current_input = {0};
+static qboolean has_current_input = false;
+
 // ============================================================================
 // BACKEND INITIALIZATION
 // ============================================================================
@@ -256,8 +260,38 @@ void PluQ_BroadcastWorldState(void)
 	PluQ_FrameUpdate_paused_add(&builder, (cl.paused != 0));
 	PluQ_FrameUpdate_in_game_add(&builder, true);
 
-	// TODO: Add entities (cl_visedicts)
-	// For now, just send player state
+	// Entities - build vector of visible entities
+	PluQ_Entity_vec_start(&builder);
+
+	for (int i = 0; i < cl_numvisedicts; i++)
+	{
+		entity_t *ent = cl_visedicts[i];
+		if (!ent)
+			continue;
+
+		// Build entity
+		PluQ_Vec3_t origin = QuakeVec3_To_FB(ent->origin);
+		PluQ_Vec3_t angles = QuakeVec3_To_FB(ent->angles);
+
+		PluQ_Entity_vec_push_start(&builder);
+		PluQ_Entity_origin_add(&builder, &origin);
+		PluQ_Entity_angles_add(&builder, &angles);
+
+		// Model ID: Use model pointer as ID (will be 0 if no model)
+		// Frontend will need to request model data via Resources channel
+		PluQ_Entity_model_id_add(&builder, ent->model ? (uint16_t)((size_t)ent->model & 0xFFFF) : 0);
+
+		PluQ_Entity_frame_add(&builder, (uint8_t)ent->frame);
+		PluQ_Entity_colormap_add(&builder, ent->colormap ? ent->colormap[0] : 0);
+		PluQ_Entity_skin_add(&builder, (uint8_t)ent->skinnum);
+		PluQ_Entity_effects_add(&builder, (uint32_t)ent->effects);
+		PluQ_Entity_alpha_add(&builder, ent->alpha / 255.0f); // Convert byte to float
+
+		PluQ_Entity_vec_push_end(&builder);
+	}
+
+	PluQ_Entity_vec_ref_t entities_ref = PluQ_Entity_vec_end(&builder);
+	PluQ_FrameUpdate_entities_add(&builder, entities_ref);
 
 	PluQ_FrameUpdate_ref_t frame_ref = PluQ_FrameUpdate_end(&builder);
 
@@ -282,6 +316,7 @@ void PluQ_BroadcastWorldState(void)
 		pluq_stats_t stats;
 		PluQ_GetStats(&stats);
 		stats.frames_sent++;
+		stats.total_entities += cl_numvisedicts;
 		double frame_time = Sys_DoubleTime() - start_time;
 		stats.total_time += frame_time;
 		if (frame_time > stats.max_frame_time)
@@ -302,14 +337,9 @@ qboolean PluQ_HasPendingInput(void)
 	if (!PluQ_Backend_IsEnabled())
 		return false;
 
-	nng_msg *msg;
-	int rv = nng_recvmsg(backend_ctx.input_pull, &msg, NNG_FLAG_NONBLOCK);
-	if (rv == 0)
-	{
-		// TODO: Parse InputCommand FlatBuffer
-		nng_msg_free(msg);
-	}
-	return false;
+	// Return true if we have received and stored input from frontend
+	// PluQ_ProcessInputCommands() must be called to receive and store input first
+	return has_current_input;
 }
 
 void PluQ_ProcessInputCommands(void)
@@ -332,29 +362,56 @@ void PluQ_ProcessInputCommands(void)
 			continue;
 		}
 
-		// Get command text
+		// Store input data for PluQ_Move and PluQ_ApplyViewAngles
+		current_input.sequence = PluQ_InputCommand_sequence(cmd);
+		current_input.timestamp = PluQ_InputCommand_timestamp(cmd);
+		current_input.forward_move = PluQ_InputCommand_forward_move(cmd);
+		current_input.side_move = PluQ_InputCommand_side_move(cmd);
+		current_input.up_move = PluQ_InputCommand_up_move(cmd);
+
+		// Get view angles
+		const PluQ_Vec3_t *angles = PluQ_InputCommand_view_angles(cmd);
+		if (angles)
+			FB_Vec3_To_Quake(angles, current_input.view_angles);
+
+		current_input.buttons = PluQ_InputCommand_buttons(cmd);
+		current_input.impulse = (uint8_t)PluQ_InputCommand_impulse(cmd);
+
+		// Get command text (if any)
 		const char *cmd_text = PluQ_InputCommand_cmd_text(cmd);
 		if (cmd_text && cmd_text[0])
 		{
 			Con_Printf("PluQ Backend: Received command: \"%s\"\n", cmd_text);
 			Cbuf_AddText(cmd_text);
 			Cbuf_AddText("\n");
+			q_strlcpy(current_input.cmd_text, cmd_text, sizeof(current_input.cmd_text));
+		}
+		else
+		{
+			current_input.cmd_text[0] = 0;
 		}
 
+		has_current_input = true;
 		nng_msg_free((nng_msg *)buf);
 	}
 }
 
 void PluQ_Move(usercmd_t *cmd)
 {
-	if (!PluQ_Backend_IsEnabled())
+	if (!PluQ_Backend_IsEnabled() || !has_current_input || !cmd)
 		return;
-	// TODO: Apply IPC-received movement to command
+
+	// Apply movement from frontend input
+	cmd->forwardmove = current_input.forward_move;
+	cmd->sidemove = current_input.side_move;
+	cmd->upmove = current_input.up_move;
 }
 
 void PluQ_ApplyViewAngles(void)
 {
-	if (!PluQ_Backend_IsEnabled())
+	if (!PluQ_Backend_IsEnabled() || !has_current_input)
 		return;
-	// TODO: Apply IPC-received view angles to cl.viewangles
+
+	// Apply view angles from frontend input
+	VectorCopy(current_input.view_angles, cl.viewangles);
 }
