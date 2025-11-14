@@ -63,10 +63,46 @@ int main(void)
 	printf("Broadcasting on %s\n", PLUQ_URL_GAMEPLAY);
 	printf("Waiting for subscribers...\n\n");
 
-	// Give subscribers time to connect
-	sleep(1);
+	// Give subscribers time to connect (warmup period)
+	// PUB/SUB subscriptions need time to establish even after connection
+	printf("Warmup: 5 seconds to ensure subscriptions are established...\n");
+	sleep(5);
 
-	printf("Starting frame broadcast...\n\n");
+	printf("Sending 10 warmup frames (not counted)...\n");
+	for (int warmup_frame = 0; warmup_frame < 10; warmup_frame++) {
+		// Build and send a minimal warmup frame
+		flatcc_builder_t builder;
+		flatcc_builder_init(&builder);
+		flatcc_builder_start_buffer(&builder, 0, 0, 0);
+
+		PluQ_FrameUpdate_start(&builder);
+		PluQ_FrameUpdate_frame_number_add(&builder, 0xFFFFFFFF);  // Special marker for warmup
+		PluQ_FrameUpdate_timestamp_add(&builder, -1.0);
+		PluQ_FrameUpdate_ref_t frame_ref = PluQ_FrameUpdate_end(&builder);
+
+		PluQ_GameplayEvent_union_ref_t event = PluQ_GameplayEvent_as_FrameUpdate(frame_ref);
+
+		PluQ_GameplayMessage_start_as_root(&builder);
+		PluQ_GameplayMessage_event_add_value(&builder, event);
+		PluQ_GameplayMessage_event_add_type(&builder, event.type);
+		PluQ_GameplayMessage_end_as_root(&builder);
+
+		size_t size;
+		void *buf = flatcc_builder_finalize_buffer(&builder, &size);
+		if (buf) {
+			nng_msg *msg;
+			if (nng_msg_alloc(&msg, size) == 0) {
+				memcpy(nng_msg_body(msg), buf, size);
+				nng_sendmsg(pub, msg, 0);  // Ignore errors during warmup
+			}
+			flatcc_builder_aligned_free(buf);
+		}
+		flatcc_builder_clear(&builder);
+
+		usleep(16666);  // ~60 FPS
+	}
+
+	printf("Starting frame broadcast (100 frames)...\n\n");
 
 	// Broadcast loop
 	while (keep_running && frame_number < 100)  // Limit to 100 frames for testing
@@ -112,11 +148,11 @@ int main(void)
 		PluQ_FrameUpdate_ref_t frame_ref = PluQ_FrameUpdate_end(&builder);
 
 		// Wrap in GameplayMessage
-		PluQ_GameplayEvent_union_ref_t event;
-		event.type = PluQ_GameplayEvent_FrameUpdate;
-		event.value = frame_ref;
+		PluQ_GameplayEvent_union_ref_t event = PluQ_GameplayEvent_as_FrameUpdate(frame_ref);
 
-		PluQ_GameplayMessage_create(&builder, event);
+		PluQ_GameplayMessage_start_as_root(&builder);
+		PluQ_GameplayMessage_event_add_value(&builder, event);
+		PluQ_GameplayMessage_event_add_type(&builder, event.type);
 		PluQ_GameplayMessage_end_as_root(&builder);
 
 		// Finalize buffer
@@ -155,6 +191,11 @@ int main(void)
 
 	printf("\nBroadcast complete! Sent %u frames\n", frame_number);
 
+	// Cooldown: Give subscribers time to receive last frames before closing socket
+	printf("Cooldown: 2 seconds to flush buffers...\n");
+	sleep(2);
+
+	printf("Closing...\n");
 	nng_close(pub);
 	return 0;
 }
