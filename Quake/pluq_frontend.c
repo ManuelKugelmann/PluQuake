@@ -17,7 +17,19 @@ of the License, or (at your option) any later version.
 // FRONTEND CONTEXT
 // ============================================================================
 
-static pluq_context_t frontend_ctx;
+typedef struct
+{
+	nng_socket resources_req;
+	nng_socket gameplay_sub;
+	nng_socket input_push;
+	nng_dialer resources_dialer;
+	nng_dialer gameplay_dialer;
+	nng_dialer input_dialer;
+	qboolean initialized;
+	qboolean is_frontend;
+} pluq_frontend_context_t;
+
+static pluq_frontend_context_t frontend_ctx;
 static qboolean frontend_initialized = false;
 static uint32_t last_received_frame = 0;
 
@@ -58,7 +70,6 @@ qboolean PluQ_Frontend_Init(void)
 	// Note: nng library already initialized by PluQ_Init()
 
 	memset(&frontend_ctx, 0, sizeof(frontend_ctx));
-	frontend_ctx.is_backend = false;
 	frontend_ctx.is_frontend = true;
 
 	// Initialize frontend sockets (REQ, SUB, PUSH)
@@ -152,34 +163,6 @@ void PluQ_Frontend_Shutdown(void)
 // ============================================================================
 // FRONTEND TRANSPORT LAYER
 // ============================================================================
-
-qboolean PluQ_Frontend_RequestResource(uint32_t resource_id)
-{
-	// TODO: Build ResourceRequest FlatBuffer and send
-	Con_Printf("PluQ Frontend: Requesting resource ID %u (not yet implemented)\n", resource_id);
-	return false;
-}
-
-qboolean PluQ_Frontend_ReceiveResource(void **flatbuf_out, size_t *size_out)
-{
-	int rv;
-	nng_msg *msg;
-
-	if (!frontend_ctx.initialized || !frontend_ctx.is_frontend)
-		return false;
-
-	if ((rv = nng_recvmsg(frontend_ctx.resources_req, &msg, NNG_FLAG_NONBLOCK)) != 0)
-	{
-		if (rv != NNG_EAGAIN)
-			Con_Printf("PluQ Frontend: Failed to receive resource: %s\n", nng_strerror(rv));
-		return false;
-	}
-
-	*flatbuf_out = nng_msg_body(msg);
-	*size_out = nng_msg_len(msg);
-	// Note: Caller must call nng_msg_free(msg) when done
-	return true;
-}
 
 qboolean PluQ_Frontend_ReceiveFrame(void **flatbuf_out, size_t *size_out)
 {
