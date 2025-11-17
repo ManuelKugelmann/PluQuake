@@ -1,23 +1,25 @@
-name: Rebuild Windows Prebuilt Libraries
+name: Build Windows PluQ Libraries
 
 on:
   workflow_dispatch:  # Manual trigger
   push:
     paths:
       - 'Windows/build-pluq-mingw.sh'
+      - 'Windows/build-pluq-libs.ps1'
       - 'Quake/build-nng.sh'
       - 'Quake/build-flatcc.sh'
       - '.github/workflows/rebuild-windows-libs.yml'
 
 jobs:
-  rebuild:
-    name: Rebuild Windows/pluq/
+  build-mingw:
+    name: Build nng and flatcc for Windows (MinGW)
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Install Build Tools
-        run: sudo apt update && sudo apt install cmake make git
+        run: sudo apt-get update && sudo apt-get install -y cmake make git wget
 
       - name: Install LLVM-MinGW (UCRT)
         run: |
@@ -27,10 +29,29 @@ jobs:
           sudo mv /opt/llvm-mingw-20251104-ucrt-ubuntu-22.04-x86_64 /opt/llvm-mingw/
           rm llvm-mingw-20251104-ucrt-ubuntu-22.04-x86_64.tar.xz
 
-      - name: Rebuild Prebuilt Libraries (both x86 and x64)
+      - name: Build Prebuilt Libraries (both x86 and x64)
         run: |
           export PATH="/opt/llvm-mingw/llvm-mingw-20251104-ucrt-ubuntu-22.04-x86_64/bin:$PATH"
-          cd Windows && ./build-pluq-mingw.sh
+          cd Windows && chmod +x build-pluq-mingw.sh && ./build-pluq-mingw.sh
+
+      - name: Verify build output
+        run: |
+          if [ ! -f "Windows/pluq/include/nng/nng.h" ]; then
+            echo "ERROR: nng headers not found"
+            exit 1
+          fi
+          for arch in x86 x64; do
+            if [ ! -f "Windows/pluq/lib/$arch/nng.lib" ]; then
+              echo "ERROR: $arch/nng.lib not found"
+              exit 1
+            fi
+            if [ ! -f "Windows/pluq/lib/$arch/flatccrt.lib" ]; then
+              echo "ERROR: $arch/flatccrt.lib not found"
+              exit 1
+            fi
+          done
+          echo "✓ All Windows libraries built successfully (MinGW)!"
+          ls -lh Windows/pluq/lib/*/
 
       - name: Check for changes
         id: check_changes
