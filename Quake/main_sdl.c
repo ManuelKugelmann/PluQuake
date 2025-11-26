@@ -139,6 +139,10 @@ int main(int argc, char *argv[])
 
 	COM_InitArgv(parms.argc, parms.argv);
 
+	// -conout enables unbuffered console output to stdout (useful for headless/scripted usage)
+	if (COM_CheckParm("-conout"))
+		Sys_SetStdoutUnbuffered (true);
+
 	// isDedicated controls main loop selection (dedicated loop has no VID calls)
 	// -headless uses dedicated loop but runs full client code (not ca_dedicated state)
 	isDedicated = (COM_CheckParm("-dedicated") != 0) || (COM_CheckParm("-headless") != 0);
