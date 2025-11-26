@@ -25,6 +25,8 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 #include "quakedef.h"
 #include "steam.h"
 
+static qboolean sys_stdout_unbuffered = false;  // -stdout flag for unbuffered console output
+
 #include <sys/types.h>
 #include <errno.h>
 #include <unistd.h>
@@ -785,6 +787,13 @@ qboolean Sys_IsStartedFromMapEditor (void)
 	return q_strcasestr (exe, "trenchbroom") != NULL || q_strcasestr (exe, "jack") != NULL;
 }
 
+void Sys_SetStdoutUnbuffered (qboolean enable)
+{
+	sys_stdout_unbuffered = enable;
+	if (enable)
+		setvbuf (stdout, NULL, _IONBF, 0);  // fully unbuffered
+}
+
 void Sys_Init (void)
 {
 	const char* term = getenv("TERM");
@@ -869,6 +878,8 @@ void Sys_Printf (const char *fmt, ...)
 
 	UTF8_FromQuake (u8text, sizeof (u8text), qtext);
 	printf ("%s", u8text);
+	if (sys_stdout_unbuffered)
+		fflush (stdout);
 
 	// log all messages to file as well if -condebug was specified
 	Con_DebugLog (u8text);
