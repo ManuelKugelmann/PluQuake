@@ -37,6 +37,16 @@ cd tests && make -j4                  # Build tests
 
 - Do not add Claude info to commit messages (no "Generated with Claude Code" or "Co-Authored-By: Claude" footers)
 
+## Headless Mode
+
+**Intent**: Headless mode (`-headless`) should act like a regular Quake client, loading all resources normally but skipping actual display and audio output. Resources must still be loaded to be forwarded to the frontend via IPC.
+
+**Current Limitation**: Headless mode is incomplete. Loading maps crashes because GL calls still execute but `gl_max_texture_size` is 0 without OpenGL initialization. A proper fix requires stubbing more GL functions or using a virtual framebuffer (Xvfb).
+
+**Useful Flags**:
+- `-conout`: Unbuffered console output to stdout (useful for headless/scripted usage)
+- `-condebug`: Writes console output to `qconsole.log`
+
 ## CLAUDE_Docs Folder
 
 Place temporary dev coordination files (status, design notes, progress) in `CLAUDE_Docs/`.
