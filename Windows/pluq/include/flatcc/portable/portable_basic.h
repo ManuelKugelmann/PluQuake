@@ -21,7 +21,5 @@
 /* These are not supported by C11 and are general platform abstractions. */
 #include "pendian.h"
 #include "punaligned.h"
-#include "pmemaccess.h"
-
 
 #endif /* PORTABLE_BASIC_H */

@@ -54,7 +54,6 @@ struct flatcc_options {
     int bool_size;
     int require_root_type;
     int strict_enum_init;
-    int silence;
     uint64_t vt_max_count;
 
     const char *default_schema_ext;
@@ -85,7 +84,7 @@ struct flatcc_options {
     int cgen_recursive;
     int cgen_spacing;
     int cgen_no_conflicts;
-    int cgen;
+
 
     int bgen_bfbs;
     int bgen_qualify_names;
