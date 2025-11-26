@@ -1,4 +1,4 @@
-name: Rebuild Linux Prebuilt Libraries
+name: Build Linux PluQ Libraries
 
 on:
   workflow_dispatch:  # Manual trigger
@@ -10,17 +10,35 @@ on:
       - '.github/workflows/rebuild-linux-libs.yml'
 
 jobs:
-  rebuild:
-    name: Rebuild Linux/pluq/
+  build-libs:
+    name: Build nng and flatcc for Linux
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Install Build Tools
-        run: sudo apt update && sudo apt install cmake gcc g++ make git
+        run: sudo apt-get update && sudo apt-get install -y cmake build-essential wget
 
-      - name: Rebuild Prebuilt Libraries
-        run: cd Linux && ./build-pluq-libs.sh
+      - name: Build Prebuilt Libraries
+        run: cd Linux && chmod +x build-pluq-libs.sh && ./build-pluq-libs.sh
+
+      - name: Verify build output
+        run: |
+          if [ ! -f "Linux/pluq/include/nng/nng.h" ]; then
+            echo "ERROR: nng headers not found"
+            exit 1
+          fi
+          if [ ! -f "Linux/pluq/lib/libnng.a" ]; then
+            echo "ERROR: libnng.a not found"
+            exit 1
+          fi
+          if [ ! -f "Linux/pluq/lib/libflatccrt.a" ]; then
+            echo "ERROR: libflatccrt.a not found"
+            exit 1
+          fi
+          echo "✓ All Linux libraries built successfully!"
+          ls -lh Linux/pluq/lib/
 
       - name: Check for changes
         id: check_changes

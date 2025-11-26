@@ -1,4 +1,4 @@
-name: Rebuild macOS Prebuilt Libraries
+name: Build macOS PluQ Libraries
 
 on:
   workflow_dispatch:  # Manual trigger
@@ -10,17 +10,40 @@ on:
       - '.github/workflows/rebuild-macos-libs.yml'
 
 jobs:
-  rebuild:
-    name: Rebuild macOS/pluq/
+  build-libs:
+    name: Build nng and flatcc for macOS
     runs-on: macos-12
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
       - name: Install Build Tools
-        run: brew install cmake
+        run: |
+          brew install cmake
+          which cmake
+          which clang
 
-      - name: Rebuild Prebuilt Libraries
-        run: cd macOS && ./build-pluq-libs.sh
+      - name: Build Prebuilt Libraries
+        run: cd macOS && chmod +x build-pluq-libs.sh && ./build-pluq-libs.sh
+
+      - name: Verify build output
+        run: |
+          if [ ! -f "macOS/pluq/include/nng/nng.h" ]; then
+            echo "ERROR: nng headers not found"
+            exit 1
+          fi
+          if [ ! -f "macOS/pluq/lib/libnng.a" ]; then
+            echo "ERROR: libnng.a not found"
+            exit 1
+          fi
+          if [ ! -f "macOS/pluq/lib/libflatccrt.a" ]; then
+            echo "ERROR: libflatccrt.a not found"
+            exit 1
+          fi
+          echo "✓ All macOS libraries built successfully!"
+          ls -lh macOS/pluq/lib/
+          file macOS/pluq/lib/libnng.a
+          file macOS/pluq/lib/libflatccrt.a
 
       - name: Check for changes
         id: check_changes

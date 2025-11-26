@@ -31,8 +31,11 @@ void PluQ_Frontend_Shutdown(void);
 // ============================================================================
 
 // Resources channel (REQ/REP)
-qboolean PluQ_Frontend_RequestResource(uint32_t resource_id);
-qboolean PluQ_Frontend_ReceiveResource(void **flatbuf_out, size_t *size_out);
+qboolean PluQ_Frontend_RequestResource(PluQ_ResourceType_enum_t resource_type,
+                                        uint32_t resource_id,
+                                        const char *resource_name,
+                                        void **data_out,
+                                        size_t *size_out);
 
 // Gameplay channel (PUB/SUB)
 qboolean PluQ_Frontend_ReceiveFrame(void **flatbuf_out, size_t *size_out);

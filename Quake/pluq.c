@@ -36,3 +36,39 @@ void PluQ_ResetStats(void)
 	memset(&perf_stats, 0, sizeof(perf_stats));
 }
 
+// ============================================================================
+// SHARED INITIALIZATION
+// ============================================================================
+
+void PluQ_Init(void)
+{
+	Con_Printf("PluQ: Initializing nng library...\n");
+
+	// nng library initialization is automatic - no explicit init needed
+	// This function exists for future expansion (cvars, config, etc.)
+
+	Con_Printf("PluQ: Initialization complete\n");
+}
+
+// ============================================================================
+// FRONTEND WRAPPERS (used when compiling as frontend)
+// ============================================================================
+
+#ifdef PLUQ_FRONTEND
+
+// Forward declarations from pluq_frontend.h
+extern void PluQ_Frontend_ApplyViewAngles(void);
+extern void PluQ_Frontend_Move(usercmd_t *cmd);
+
+void PluQ_ApplyViewAngles(void)
+{
+	PluQ_Frontend_ApplyViewAngles();
+}
+
+void PluQ_Move(usercmd_t *cmd)
+{
+	PluQ_Frontend_Move(cmd);
+}
+
+#endif // PLUQ_FRONTEND
+
