@@ -11,6 +11,6 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Install Build Tools
-      run: sudo apt update && sudo apt install cmake gcc g++ make git libcurl4-openssl-dev libsdl2-dev libvorbis-dev libmpg123-dev
+      run: sudo apt-get update && sudo apt-get install -y cmake gcc g++ make git libcurl4-openssl-dev libsdl2-dev libvorbis-dev libmpg123-dev
     - name: Build Ironwail (using prebuilt Linux/pluq/ libraries)
       run: make --jobs=3 --keep-going --directory=Quake CC=${{ matrix.compiler }}
