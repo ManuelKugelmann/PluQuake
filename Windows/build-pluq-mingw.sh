@@ -115,7 +115,7 @@ EOF
     cmake \
         -DCMAKE_TOOLCHAIN_FILE="$TOOLCHAIN_FILE" \
         -DCMAKE_BUILD_TYPE=Release \
-        -DCMAKE_C_FLAGS="-Wno-error=implicit-int-conversion-on-negation -Wno-error -Wno-c23-extensions" \
+        -DCMAKE_C_FLAGS="-Wno-error=implicit-int-conversion-on-negation -Wno-error -Wno-c23-extensions -Wno-unterminated-string-initialization" \
         -DFLATCC_INSTALL=ON \
         -DFLATCC_RTONLY=ON \
         -DCMAKE_INSTALL_PREFIX="$WORK_DIR/install-$ARCH" \

@@ -13,6 +13,9 @@ USE_SDL2=1
 ### Enable/Disable Curl
 USE_CURL=0
 
+# Detect host OS early (needed by Makefile.deps)
+HOST_OS = $(shell uname|sed -e s/_.*//|tr '[:upper:]' '[:lower:]')
+
 # Include dependency detection (supports local and system libs)
 -include Makefile.deps
 
@@ -40,8 +43,6 @@ VORBISLIB=vorbis
 check_gcc = $(shell if echo | $(CC) $(1) -Werror -S -o /dev/null -xc - > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi;)
 
 # ---------------------------
-
-HOST_OS = $(shell uname|sed -e s/_.*//|tr '[:upper:]' '[:lower:]')
 
 DEBUG ?= 0
 
