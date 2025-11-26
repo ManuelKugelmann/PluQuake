@@ -7,7 +7,7 @@ This directory contains precompiled libraries for PluQ IPC on Linux.
 - flatcc: 0.6.1
 
 ## Build Information
-**Build Date**: 2025-11-14
+**Build Date**: 2025-11-26
 **Platform**: Linux x86_64
 **Compiler**: gcc 11
 **Build Type**: Release (static libraries)
