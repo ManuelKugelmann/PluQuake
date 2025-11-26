@@ -1,2 +1,6 @@
 # Disable automatic line ending conversion
 * -text
+
+# Shell scripts must use LF for cross-platform execution
+*.sh text eol=lf
+**/sdl2-config text eol=lf
