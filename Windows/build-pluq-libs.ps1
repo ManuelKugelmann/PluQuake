@@ -46,7 +46,9 @@ $flatccUrl = "https://github.com/dvidelabs/flatcc/archive/refs/tags/$FLATCC_VERS
 $flatccZip = Join-Path $WorkDir "flatcc.zip"
 Invoke-WebRequest -Uri $flatccUrl -OutFile $flatccZip
 Expand-Archive -Path $flatccZip -DestinationPath $WorkDir -Force
-$flatccSource = Join-Path $WorkDir "flatcc-$FLATCC_VERSION"
+# GitHub archives strip the 'v' prefix from the folder name
+$flatccFolderName = $FLATCC_VERSION -replace '^v', ''
+$flatccSource = Join-Path $WorkDir "flatcc-$flatccFolderName"
 
 # Find CMake and Visual Studio
 Write-Host "`nLocating build tools..."
