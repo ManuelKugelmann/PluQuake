@@ -9,7 +9,7 @@ $ErrorActionPreference = "Stop"
 
 # Versions
 $NNG_VERSION = "1.11"
-$FLATCC_VERSION = "master"  # Use master branch - actively maintained with modern CMake support
+$FLATCC_VERSION = "v0.6.1"  # Use stable release to match Linux build
 
 # Directories
 $ScriptDir = $PSScriptRoot
@@ -41,8 +41,8 @@ Invoke-WebRequest -Uri $nngUrl -OutFile $nngZip
 Expand-Archive -Path $nngZip -DestinationPath $WorkDir -Force
 $nngSource = Join-Path $WorkDir "nng-$NNG_VERSION"
 
-# flatcc - download master branch
-$flatccUrl = "https://github.com/dvidelabs/flatcc/archive/refs/heads/$FLATCC_VERSION.zip"
+# flatcc - download release tag
+$flatccUrl = "https://github.com/dvidelabs/flatcc/archive/refs/tags/$FLATCC_VERSION.zip"
 $flatccZip = Join-Path $WorkDir "flatcc.zip"
 Invoke-WebRequest -Uri $flatccUrl -OutFile $flatccZip
 Expand-Archive -Path $flatccZip -DestinationPath $WorkDir -Force

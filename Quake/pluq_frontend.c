@@ -335,7 +335,7 @@ void PluQ_Frontend_SendInputCommand(usercmd_t *cmd)
 	flatcc_builder_t builder;
 	flatcc_builder_init(&builder);
 
-	PluQ_Vec3_t view_angles = QuakeVec3_To_FB(cmd->viewangles);
+	PluQ_Vec3Angle_t view_angles = QuakeAngles_To_Vec3Angle(cmd->viewangles);
 
 	PluQ_InputCommand_start(&builder);
 	PluQ_InputCommand_sequence_add(&builder, sequence++);

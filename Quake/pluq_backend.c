@@ -244,9 +244,9 @@ void PluQ_BroadcastWorldState(void)
 	PluQ_FrameUpdate_frame_number_add(&builder, frame_counter++);
 	PluQ_FrameUpdate_timestamp_add(&builder, cl.time);
 
-	// View state
-	PluQ_Vec3_t view_origin = QuakeVec3_To_FB(r_refdef.vieworg);
-	PluQ_Vec3_t view_angles = QuakeVec3_To_FB(cl.viewangles);
+	// View state (using Vec3Coord for position, Vec3Angle for angles)
+	PluQ_Vec3Coord_t view_origin = QuakeVec3_To_Vec3Coord(r_refdef.vieworg);
+	PluQ_Vec3Angle_t view_angles = QuakeAngles_To_Vec3Angle(cl.viewangles);
 	PluQ_FrameUpdate_view_origin_add(&builder, &view_origin);
 	PluQ_FrameUpdate_view_angles_add(&builder, &view_angles);
 
@@ -269,9 +269,9 @@ void PluQ_BroadcastWorldState(void)
 		if (!ent)
 			continue;
 
-		// Build entity
-		PluQ_Vec3_t origin = QuakeVec3_To_FB(ent->origin);
-		PluQ_Vec3_t angles = QuakeVec3_To_FB(ent->angles);
+		// Build entity (using Vec3Coord for position, Vec3Angle for angles)
+		PluQ_Vec3Coord_t origin = QuakeVec3_To_Vec3Coord(ent->origin);
+		PluQ_Vec3Angle_t angles = QuakeAngles_To_Vec3Angle(ent->angles);
 
 		PluQ_Entity_vec_push_start(&builder);
 		PluQ_Entity_origin_add(&builder, &origin);
@@ -369,10 +369,10 @@ void PluQ_ProcessInputCommands(void)
 		current_input.side_move = PluQ_InputCommand_side_move(cmd);
 		current_input.up_move = PluQ_InputCommand_up_move(cmd);
 
-		// Get view angles
-		const PluQ_Vec3_t *angles = PluQ_InputCommand_view_angles(cmd);
+		// Get view angles (Vec3Angle format)
+		const PluQ_Vec3Angle_t *angles = PluQ_InputCommand_view_angles(cmd);
 		if (angles)
-			FB_Vec3_To_Quake(angles, current_input.view_angles);
+			Vec3Angle_To_Quake(angles, current_input.view_angles);
 
 		current_input.buttons = PluQ_InputCommand_buttons(cmd);
 		current_input.impulse = (uint8_t)PluQ_InputCommand_impulse(cmd);
