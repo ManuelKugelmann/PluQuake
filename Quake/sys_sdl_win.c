@@ -1240,3 +1240,9 @@ void Sys_CloseLibrary (void *lib)
 {
 	FreeLibrary ((HMODULE) lib);
 }
+
+void Sys_SetStdoutUnbuffered (qboolean enable)
+{
+	if (enable)
+		setvbuf (stdout, NULL, _IONBF, 0);  // fully unbuffered
+}
