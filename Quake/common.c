@@ -2558,7 +2558,7 @@ void COM_SwitchGame (const char *paths)
 	Cache_Flush ();
 	Mod_ResetAll();
 	Sky_ClearAll();
-	if (!isDedicated)
+	if (!isDedicated && !isHeadless)
 	{
 		TexMgr_NewGame ();
 		Draw_NewGame ();

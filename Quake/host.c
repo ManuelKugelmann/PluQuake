@@ -42,7 +42,7 @@ Memory is cleared / released when a server or client begins, not when they end.
 quakeparms_t *host_parms;
 
 qboolean	host_initialized;		// true if into command execution
-qboolean	host_headless;			// true if running without video/audio
+qboolean	isHeadless;			// true if running without video/audio (-headless)
 
 double		host_frametime;
 double		host_rawframetime;
@@ -1447,20 +1447,25 @@ void Host_Init (void)
 	if (cls.state != ca_dedicated)
 	{
 		// Check for headless mode (runs full client without hardware I/O)
-		host_headless = (COM_CheckParm("-headless") != 0);
-		if (host_headless)
-			Con_Printf("Running in headless mode (no video/audio)\n");
-
+		isHeadless = (COM_CheckParm("-headless") != 0);
 		host_colormap = (byte *)COM_LoadHunkFile ("gfx/colormap.lmp", NULL);
 		if (!host_colormap)
 			Sys_Error ("Couldn't load gfx/colormap.lmp");
+
+		if (isHeadless)
+		{
+			extern GLint gl_max_texture_size;
+			gl_max_texture_size = 16384;  // sensible default for data loading
+			vid.colormap = host_colormap;  // needed for player color translation
+			Con_Printf("Running in headless mode (no video/audio)\n");
+		}
 
 		V_Init ();
 		Chase_Init ();
 		M_Init ();
 
 		// Skip hardware and rendering initialization in headless mode
-		if (!host_headless)
+		if (!isHeadless)
 		{
 			VID_Init ();
 			IN_Init ();
@@ -1471,10 +1476,10 @@ void Host_Init (void)
 			S_Init ();
 			CDAudio_Init ();
 			BGM_Init();
+			Sbar_Init ();
 		}
 
-		Sbar_Init ();
-		CL_Init ();  // Client runs even in headless mode
+		CL_Init ();
 		ExtraMaps_Init (); //johnfitz
 		DemoList_Init (); //ericw
 		SaveList_Init ();
@@ -1529,7 +1534,7 @@ Returns true if running in headless mode (no video/audio)
 */
 qboolean Host_IsHeadless(void)
 {
-	return host_headless;
+	return isHeadless;
 }
 
 /*

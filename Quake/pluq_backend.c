@@ -300,8 +300,7 @@ void PluQ_BroadcastWorldState(void)
 	event.type = PluQ_GameplayEvent_FrameUpdate;
 	event.value = frame_ref;
 
-	PluQ_GameplayMessage_create(&builder, event);
-	PluQ_GameplayMessage_end_as_root(&builder);
+	PluQ_GameplayMessage_create_as_root(&builder, event);
 
 	// Finalize buffer
 	size_t size;

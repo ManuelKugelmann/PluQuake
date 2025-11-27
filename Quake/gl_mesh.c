@@ -144,7 +144,7 @@ void GLMesh_LoadVertexBuffer (qmodel_t *m, aliashdr_t *mainhdr)
 	intptr_t vertofs;
 	intptr_t poseofs;
 
-	if (isDedicated)
+	if (isDedicated || isHeadless)
 		return;
 
 	//count how much space we're going to need.
@@ -344,7 +344,7 @@ void GLMesh_DeleteVertexBuffers (void)
 	int j;
 	qmodel_t *m;
 	
-	if (isDedicated)
+	if (isDedicated || isHeadless)
 		return;
 
 	for (j = 1; j < MAX_MODELS; j++)

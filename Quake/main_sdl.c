@@ -143,9 +143,9 @@ int main(int argc, char *argv[])
 	if (COM_CheckParm("-conout"))
 		Sys_SetStdoutUnbuffered (true);
 
-	// isDedicated controls main loop selection (dedicated loop has no VID calls)
-	// -headless uses dedicated loop but runs full client code (not ca_dedicated state)
-	isDedicated = (COM_CheckParm("-dedicated") != 0) || (COM_CheckParm("-headless") != 0);
+	// isDedicated = true dedicated server (skips resource loading)
+	// isHeadless = headless client (loads resources, skips display/audio)
+	isDedicated = (COM_CheckParm("-dedicated") != 0);
 
 	Sys_InitSDL ();
 
@@ -170,7 +170,7 @@ int main(int argc, char *argv[])
 	Host_Init();
 
 	oldtime = Sys_DoubleTime();
-	if (isDedicated)
+	if (isDedicated || isHeadless)
 	{
 		while (1)
 		{

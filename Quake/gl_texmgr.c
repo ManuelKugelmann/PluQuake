@@ -1479,7 +1479,7 @@ gltexture_t *TexMgr_LoadImageEx (qmodel_t *owner, const char *name, int width, i
 	gltexture_t *glt = NULL;
 	int mark;
 
-	if (isDedicated)
+	if (isDedicated || isHeadless)
 		return NULL;
 
 	// cubemaps/arrays are only partially implemented, disable unsupported flags

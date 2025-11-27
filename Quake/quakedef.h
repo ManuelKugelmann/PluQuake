@@ -442,6 +442,7 @@ extern int		current_skill;	// skill level for currently loaded level (in case
 					//  running, this reflects the level actually in use)
 
 extern qboolean		isDedicated;
+extern qboolean		isHeadless;
 
 extern int		minimum_memory;
 

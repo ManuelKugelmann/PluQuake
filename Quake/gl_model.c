@@ -613,7 +613,7 @@ static void Mod_LoadTextures (lump_t *l)
 			memcpy ( tx+1, mt64+1, pixels);
 		}
 
-		if (!isDedicated) //no texture uploading for dedicated server
+		if (!isDedicated && !isHeadless) //no texture uploading for dedicated server or headless
 		{
 			if (tx->type == TEXTYPE_SKY)
 			{

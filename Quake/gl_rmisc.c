@@ -400,6 +400,9 @@ void R_TranslateNewPlayerSkin (int playernum)
 	entity_t	*e;
 	int		skinnum;
 
+	if (isHeadless)
+		return;
+
 //get correct texture pixels
 	e = &cl_entities[1+playernum];
 
@@ -516,9 +519,12 @@ void R_NewMap (void)
 	R_ClearParticles ();
 	VEC_CLEAR (r_pointfile);
 
-	GL_BuildLightmaps ();
-	GL_BuildBModelVertexBuffer ();
-	GL_BuildBModelMarkBuffers ();
+	if (!isHeadless)
+	{
+		GL_BuildLightmaps ();
+		GL_BuildBModelVertexBuffer ();
+		GL_BuildBModelMarkBuffers ();
+	}
 	//ericw -- no longer load alias models into a VBO here, it's done in Mod_LoadAliasModel
 
 	r_framecount = 0; //johnfitz -- paranoid?
