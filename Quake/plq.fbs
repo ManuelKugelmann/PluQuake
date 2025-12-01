@@ -1,0 +1,206 @@
+// plq.fbs - PLQ FlatBuffers Schema
+// Binary-compatible with Quake C structs for direct memcpy
+
+namespace PLQ;
+
+// ============================================================================
+// QUAKE STRUCTS (binary-compatible, memcpy directly)
+// Names match Quake C structs exactly
+// ============================================================================
+
+// protocol.h:270 - 24 bytes
+struct usercmd_t {
+    viewangles_x:float;
+    viewangles_y:float;
+    viewangles_z:float;
+    forwardmove:float;
+    sidemove:float;
+    upmove:float;
+}
+
+// protocol.h:257 - 36 bytes
+struct entity_state_t {
+    origin_x:float;
+    origin_y:float;
+    origin_z:float;
+    angles_x:float;
+    angles_y:float;
+    angles_z:float;
+    modelindex:uint16;
+    frame:uint16;
+    colormap:uint8;
+    skin:uint8;
+    alpha:uint8;
+    scale:uint8;
+    effects:int32;
+}
+
+// client.h:69 - 48 bytes
+struct dlight_t {
+    origin_x:float;
+    origin_y:float;
+    origin_z:float;
+    radius:float;
+    spawn:float;
+    die:float;
+    decay:float;
+    minlight:float;
+    key:int32;
+    color_r:float;
+    color_g:float;
+    color_b:float;
+}
+
+// client.h:46 - 16 bytes
+struct cshift_t {
+    destcolor_r:int32;
+    destcolor_g:int32;
+    destcolor_b:int32;
+    percent:float;
+}
+
+// ============================================================================
+// PLQ STRUCTS (composite, PLQ-specific)
+// ============================================================================
+
+// View state from client_state_t fields
+struct plq_viewstate_t {
+    viewangles_x:float;
+    viewangles_y:float;
+    viewangles_z:float;
+    velocity_x:float;
+    velocity_y:float;
+    velocity_z:float;
+    punchangle_x:float;
+    punchangle_y:float;
+    punchangle_z:float;
+    viewheight:float;
+    time:float64;
+    viewentity:int16;
+    flags:uint16;
+}
+
+// Stats from cl.stats[] (int32 to match Quake's int)
+struct plq_stats_t {
+    health:int32;
+    frags:int32;
+    weapon:int32;
+    ammo:int32;
+    armor:int32;
+    weaponframe:int32;
+    shells:int32;
+    nails:int32;
+    rockets:int32;
+    cells:int32;
+    activeweapon:int32;
+    totalsecrets:int32;
+    totalmonsters:int32;
+    secrets:int32;
+    monsters:int32;
+    items:uint32;
+}
+
+// ============================================================================
+// MESSAGES
+// ============================================================================
+
+// Backend -> Frontend: Per-frame world state
+table plq_frame_t {
+    view:plq_viewstate_t;
+    stats:plq_stats_t;
+    entities:[entity_state_t];
+    dlights:[dlight_t];
+    cshifts:[cshift_t];
+}
+
+// Backend -> Frontend: Map loaded
+table plq_mapchange_t {
+    mapname:string;
+    levelname:string;
+    maxclients:uint8;
+    gametype:uint8;
+}
+
+// Backend -> Frontend: Light style
+table plq_lightstyle_t {
+    index:uint8;
+    map:string;
+}
+
+table plq_lightstyles_t {
+    styles:[plq_lightstyle_t];
+}
+
+// Backend -> Frontend: Disconnect
+table plq_disconnect_t {
+    reason:string;
+}
+
+// Frontend -> Backend: Input
+table plq_input_t {
+    cmd:usercmd_t;
+    msec:uint8;
+}
+
+// Frontend -> Backend: Console command
+table plq_command_t {
+    text:string;
+}
+
+// Resource types
+enum plq_resource_type_t:uint8 {
+    none = 0,
+    texture = 1,
+    model = 2,
+    lightmap = 3,
+    sound = 4
+}
+
+// Frontend -> Backend: Resource request
+table plq_resourcereq_t {
+    type:plq_resource_type_t;
+    index:uint16;
+    name:string;
+}
+
+// Backend -> Frontend: Resource data
+table plq_resourceresp_t {
+    type:plq_resource_type_t;
+    index:uint16;
+    name:string;
+    data:[ubyte];
+}
+
+// ============================================================================
+// MESSAGE WRAPPER
+// ============================================================================
+
+enum plq_msgtype_t:uint8 {
+    none = 0,
+    frame = 1,
+    mapchange = 2,
+    lightstyles = 3,
+    disconnect = 4,
+    input = 5,
+    command = 6,
+    resourcereq = 7,
+    resourceresp = 8
+}
+
+union plq_payload_t {
+    plq_frame_t,
+    plq_mapchange_t,
+    plq_lightstyles_t,
+    plq_disconnect_t,
+    plq_input_t,
+    plq_command_t,
+    plq_resourcereq_t,
+    plq_resourceresp_t
+}
+
+table plq_message_t {
+    type:plq_msgtype_t;
+    payload:plq_payload_t;
+}
+
+root_type plq_message_t;

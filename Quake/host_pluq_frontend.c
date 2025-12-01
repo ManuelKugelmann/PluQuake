@@ -22,10 +22,12 @@ Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
 // This is a slim client that receives world state via PluQ and only handles rendering/input
 
 #include "quakedef.h"
+#include "bgmusic.h"
 #include "pluq.h"
 #include "pluq_frontend.h"
 
 extern cvar_t pausable;
+extern void Host_InitLocal(void);
 
 /*
 ==================

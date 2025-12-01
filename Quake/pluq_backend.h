@@ -30,7 +30,7 @@ qboolean PluQ_Backend_IsEnabled(void);
 
 qboolean PluQ_Backend_SendResource(const void *flatbuf, size_t size);
 qboolean PluQ_Backend_PublishFrame(const void *flatbuf, size_t size);
-qboolean PluQ_Backend_ReceiveInput(void **flatbuf_out, size_t *size_out);
+qboolean PluQ_Backend_ReceiveInput(nng_msg **msg_out);
 
 // ============================================================================
 // BACKEND HIGH-LEVEL API

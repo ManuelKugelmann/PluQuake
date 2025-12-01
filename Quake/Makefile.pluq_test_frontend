@@ -1,6 +1,9 @@
 # GNU Makefile for PluQ Test Frontend (Headless IPC Testing Tool)
 # Minimal build - no SDL, no graphics, no audio, just stdin/stdout + IPC
 
+# Detect host OS early (required by Makefile.deps for platform-specific libs)
+HOST_OS ?= $(shell uname|sed -e s/_.*//|tr '[:upper:]' '[:lower:]')
+
 # Enable/Disable user directories support
 DO_USERDIRS=1
 
@@ -9,7 +12,7 @@ USE_SDL2=1
 USE_CURL=0
 
 # Include dependency detection (supports local and system libs)
-# NOTE: Must come after USE_SDL2 is set so it can detect SDL properly
+# NOTE: Must come after USE_SDL2 and HOST_OS are set
 -include Makefile.deps
 USE_CODEC_WAVE=0
 USE_CODEC_FLAC=0
@@ -28,8 +31,6 @@ USE_CODEC_UMX=0
 check_gcc = $(shell if echo | $(CC) $(1) -Werror -S -o /dev/null -xc - > /dev/null 2>&1; then echo "$(1)"; else echo "$(2)"; fi;)
 
 # ---------------------------
-
-HOST_OS = $(shell uname|sed -e s/_.*//|tr '[:upper:]' '[:lower:]')
 
 DEBUG ?= 0
 

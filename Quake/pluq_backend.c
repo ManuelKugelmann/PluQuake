@@ -7,7 +7,7 @@ as published by the Free Software Foundation; either version 2
 of the License, or (at your option) any later version.
 */
 
-// pluq_backend.c -- PluQ Backend (Server) Implementation
+// pluq_backend.c -- PLQ Backend (Server) Implementation
 
 #include "quakedef.h"
 #include "pluq_backend.h"
@@ -47,12 +47,12 @@ static qboolean has_current_input = false;
 
 void PluQ_Backend_Init(void)
 {
-	Con_Printf("PluQ Backend: Initialization deferred until Enable()\n");
+	Con_Printf("PLQ Backend: Initialization deferred until Enable()\n");
 
 	// Auto-enable backend mode when using -pluq
 	if (COM_CheckParm("-pluq"))
 	{
-		Con_Printf("PluQ backend mode enabled via -pluq flag\n");
+		Con_Printf("PLQ backend mode enabled via -pluq flag\n");
 		PluQ_Backend_Enable();
 	}
 }
@@ -63,67 +63,67 @@ qboolean PluQ_Backend_Enable(void)
 
 	if (backend_ctx.initialized)
 	{
-		Con_Printf("PluQ Backend: Already initialized\n");
+		Con_Printf("PLQ Backend: Already initialized\n");
 		backend_enabled = true;
 		return true;
 	}
 
-	Con_Printf("PluQ Backend: Initializing IPC sockets (nng+FlatBuffers)...\n");
+	Con_Printf("PLQ Backend: Initializing IPC sockets (nng+FlatBuffers)...\n");
 
 	memset(&backend_ctx, 0, sizeof(backend_ctx));
 
 	// Resources channel (REP socket - replies to resource requests)
 	if ((rv = nng_rep0_open(&backend_ctx.resources_rep)) != 0)
 	{
-		Con_Printf("PluQ Backend: Failed to create REP socket: %s\n", nng_strerror(rv));
+		Con_Printf("PLQ Backend: Failed to create REP socket: %s\n", nng_strerror(rv));
 		goto error;
 	}
 	if ((rv = nng_listener_create(&backend_ctx.resources_listener, backend_ctx.resources_rep, PLUQ_URL_RESOURCES)) != 0)
 	{
-		Con_Printf("PluQ Backend: Failed to create listener for %s: %s\n", PLUQ_URL_RESOURCES, nng_strerror(rv));
+		Con_Printf("PLQ Backend: Failed to create listener for %s: %s\n", PLUQ_URL_RESOURCES, nng_strerror(rv));
 		goto error;
 	}
 	if ((rv = nng_listener_start(backend_ctx.resources_listener, 0)) != 0)
 	{
-		Con_Printf("PluQ Backend: Failed to start listener on %s: %s\n", PLUQ_URL_RESOURCES, nng_strerror(rv));
+		Con_Printf("PLQ Backend: Failed to start listener on %s: %s\n", PLUQ_URL_RESOURCES, nng_strerror(rv));
 		goto error;
 	}
 
 	// Gameplay channel (PUB socket - broadcasts world state)
 	if ((rv = nng_pub0_open(&backend_ctx.gameplay_pub)) != 0)
 	{
-		Con_Printf("PluQ Backend: Failed to create PUB socket: %s\n", nng_strerror(rv));
+		Con_Printf("PLQ Backend: Failed to create PUB socket: %s\n", nng_strerror(rv));
 		goto error;
 	}
 	if ((rv = nng_listener_create(&backend_ctx.gameplay_listener, backend_ctx.gameplay_pub, PLUQ_URL_GAMEPLAY)) != 0)
 	{
-		Con_Printf("PluQ Backend: Failed to create listener for %s: %s\n", PLUQ_URL_GAMEPLAY, nng_strerror(rv));
+		Con_Printf("PLQ Backend: Failed to create listener for %s: %s\n", PLUQ_URL_GAMEPLAY, nng_strerror(rv));
 		goto error;
 	}
 	if ((rv = nng_listener_start(backend_ctx.gameplay_listener, 0)) != 0)
 	{
-		Con_Printf("PluQ Backend: Failed to start listener on %s: %s\n", PLUQ_URL_GAMEPLAY, nng_strerror(rv));
+		Con_Printf("PLQ Backend: Failed to start listener on %s: %s\n", PLUQ_URL_GAMEPLAY, nng_strerror(rv));
 		goto error;
 	}
 
 	// Input channel (PULL socket - receives input commands)
 	if ((rv = nng_pull0_open(&backend_ctx.input_pull)) != 0)
 	{
-		Con_Printf("PluQ Backend: Failed to create PULL socket: %s\n", nng_strerror(rv));
+		Con_Printf("PLQ Backend: Failed to create PULL socket: %s\n", nng_strerror(rv));
 		goto error;
 	}
 	if ((rv = nng_listener_create(&backend_ctx.input_listener, backend_ctx.input_pull, PLUQ_URL_INPUT)) != 0)
 	{
-		Con_Printf("PluQ Backend: Failed to create listener for %s: %s\n", PLUQ_URL_INPUT, nng_strerror(rv));
+		Con_Printf("PLQ Backend: Failed to create listener for %s: %s\n", PLUQ_URL_INPUT, nng_strerror(rv));
 		goto error;
 	}
 	if ((rv = nng_listener_start(backend_ctx.input_listener, 0)) != 0)
 	{
-		Con_Printf("PluQ Backend: Failed to start listener on %s: %s\n", PLUQ_URL_INPUT, nng_strerror(rv));
+		Con_Printf("PLQ Backend: Failed to start listener on %s: %s\n", PLUQ_URL_INPUT, nng_strerror(rv));
 		goto error;
 	}
 
-	Con_Printf("PluQ Backend: IPC sockets initialized successfully\n");
+	Con_Printf("PLQ Backend: IPC sockets initialized successfully\n");
 	backend_ctx.initialized = true;
 	backend_enabled = true;
 	return true;
@@ -138,7 +138,7 @@ void PluQ_Backend_Shutdown(void)
 	if (!backend_ctx.initialized)
 		return;
 
-	Con_Printf("PluQ Backend: Shutting down\n");
+	Con_Printf("PLQ Backend: Shutting down\n");
 
 	nng_close(backend_ctx.resources_rep);
 	nng_close(backend_ctx.gameplay_pub);
@@ -165,7 +165,7 @@ qboolean PluQ_Backend_SendResource(const void *flatbuf, size_t size)
 	int rv = nng_send(backend_ctx.resources_rep, (void *)flatbuf, size, 0);
 	if (rv != 0)
 	{
-		Con_Printf("PluQ Backend: Failed to send resource: %s\n", nng_strerror(rv));
+		Con_Printf("PLQ Backend: Failed to send resource: %s\n", nng_strerror(rv));
 		return false;
 	}
 	return true;
@@ -179,30 +179,25 @@ qboolean PluQ_Backend_PublishFrame(const void *flatbuf, size_t size)
 	int rv = nng_send(backend_ctx.gameplay_pub, (void *)flatbuf, size, 0);
 	if (rv != 0)
 	{
-		Con_Printf("PluQ Backend: Failed to publish gameplay frame: %s\n", nng_strerror(rv));
+		Con_Printf("PLQ Backend: Failed to publish gameplay frame: %s\n", nng_strerror(rv));
 		return false;
 	}
 	return true;
 }
 
-qboolean PluQ_Backend_ReceiveInput(void **flatbuf_out, size_t *size_out)
+qboolean PluQ_Backend_ReceiveInput(nng_msg **msg_out)
 {
-	nng_msg *msg;
-
 	if (!backend_ctx.initialized)
 		return false;
 
-	int rv = nng_recvmsg(backend_ctx.input_pull, &msg, NNG_FLAG_NONBLOCK);
+	int rv = nng_recvmsg(backend_ctx.input_pull, msg_out, NNG_FLAG_NONBLOCK);
 	if (rv != 0)
 	{
 		if (rv != NNG_EAGAIN)
-			Con_Printf("PluQ Backend: Failed to receive input command: %s\n", nng_strerror(rv));
+			Con_Printf("PLQ Backend: Failed to receive input command: %s\n", nng_strerror(rv));
 		return false;
 	}
 
-	*flatbuf_out = nng_msg_body(msg);
-	*size_out = nng_msg_len(msg);
-	// Note: Caller must call nng_msg_free(msg) when done
 	return true;
 }
 
@@ -231,76 +226,138 @@ void PluQ_BroadcastWorldState(void)
 
 	// Debug: Log first few broadcasts
 	if (frame_counter < 5)
-		Con_Printf("PluQ Backend: Broadcasting frame %u\n", frame_counter);
+		Con_Printf("PLQ Backend: Broadcasting frame %u\n", frame_counter);
 
 	// Initialize FlatBuffers builder
 	flatcc_builder_t builder;
 	flatcc_builder_init(&builder);
 
-	// Build FrameUpdate
-	PluQ_FrameUpdate_start(&builder);
+	// Build view state struct
+	PLQ_plq_viewstate_t_t viewstate;
+	viewstate.viewangles_x = cl.viewangles[0];
+	viewstate.viewangles_y = cl.viewangles[1];
+	viewstate.viewangles_z = cl.viewangles[2];
+	viewstate.velocity_x = cl.velocity[0];
+	viewstate.velocity_y = cl.velocity[1];
+	viewstate.velocity_z = cl.velocity[2];
+	viewstate.punchangle_x = cl.punchangle[0];
+	viewstate.punchangle_y = cl.punchangle[1];
+	viewstate.punchangle_z = cl.punchangle[2];
+	viewstate.viewheight = cl.viewheight;
+	viewstate.time = cl.time;
+	viewstate.viewentity = cl.viewentity;
+	viewstate.flags = 0;
+	if (cl.paused)
+		viewstate.flags |= PLQ_FLAG_PAUSED;
+	if (cl.onground)
+		viewstate.flags |= PLQ_FLAG_ONGROUND;
+	if (cl.inwater)
+		viewstate.flags |= PLQ_FLAG_INWATER;
+	if (cl.intermission)
+		viewstate.flags |= PLQ_FLAG_INTERMISSION;
 
-	// Frame info
-	PluQ_FrameUpdate_frame_number_add(&builder, frame_counter++);
-	PluQ_FrameUpdate_timestamp_add(&builder, cl.time);
+	// Build stats struct (direct copy from cl.stats[])
+	PLQ_plq_stats_t_t stats;
+	stats.health = cl.stats[STAT_HEALTH];
+	stats.frags = cl.stats[STAT_FRAGS];
+	stats.weapon = cl.stats[STAT_WEAPON];
+	stats.ammo = cl.stats[STAT_AMMO];
+	stats.armor = cl.stats[STAT_ARMOR];
+	stats.weaponframe = cl.stats[STAT_WEAPONFRAME];
+	stats.shells = cl.stats[STAT_SHELLS];
+	stats.nails = cl.stats[STAT_NAILS];
+	stats.rockets = cl.stats[STAT_ROCKETS];
+	stats.cells = cl.stats[STAT_CELLS];
+	stats.activeweapon = cl.stats[STAT_ACTIVEWEAPON];
+	stats.totalsecrets = cl.stats[STAT_TOTALSECRETS];
+	stats.totalmonsters = cl.stats[STAT_TOTALMONSTERS];
+	stats.secrets = cl.stats[STAT_SECRETS];
+	stats.monsters = cl.stats[STAT_MONSTERS];
+	stats.items = cl.items;
 
-	// View state (using Vec3Coord for position, Vec3Angle for angles)
-	PluQ_Vec3Coord_t view_origin = QuakeVec3_To_Vec3Coord(r_refdef.vieworg);
-	PluQ_Vec3Angle_t view_angles = QuakeAngles_To_Vec3Angle(cl.viewangles);
-	PluQ_FrameUpdate_view_origin_add(&builder, &view_origin);
-	PluQ_FrameUpdate_view_angles_add(&builder, &view_angles);
+	// Start building the frame
+	PLQ_plq_frame_t_start(&builder);
+	PLQ_plq_frame_t_view_add(&builder, &viewstate);
+	PLQ_plq_frame_t_stats_add(&builder, &stats);
 
-	// Player stats
-	PluQ_FrameUpdate_health_add(&builder, (int16_t)cl.stats[STAT_HEALTH]);
-	PluQ_FrameUpdate_armor_add(&builder, (int16_t)cl.stats[STAT_ARMOR]);
-	PluQ_FrameUpdate_weapon_add(&builder, (uint8_t)cl.stats[STAT_WEAPON]);
-	PluQ_FrameUpdate_ammo_add(&builder, (uint16_t)cl.stats[STAT_AMMO]);
-
-	// Game state
-	PluQ_FrameUpdate_paused_add(&builder, (cl.paused != 0));
-	PluQ_FrameUpdate_in_game_add(&builder, true);
-
-	// Entities - build vector of visible entities
-	PluQ_Entity_vec_start(&builder);
-
+	// Build entities vector - using entity_state_t which is binary compatible
+	PLQ_entity_state_t_vec_start(&builder);
 	for (int i = 0; i < cl_numvisedicts; i++)
 	{
 		entity_t *ent = cl_visedicts[i];
 		if (!ent)
 			continue;
 
-		// Build entity (using Vec3Coord for position, Vec3Angle for angles)
-		PluQ_Vec3Coord_t origin = QuakeVec3_To_Vec3Coord(ent->origin);
-		PluQ_Vec3Angle_t angles = QuakeAngles_To_Vec3Angle(ent->angles);
+		// Build entity_state_t struct
+		PLQ_entity_state_t_t ent_state;
+		ent_state.origin_x = ent->origin[0];
+		ent_state.origin_y = ent->origin[1];
+		ent_state.origin_z = ent->origin[2];
+		ent_state.angles_x = ent->angles[0];
+		ent_state.angles_y = ent->angles[1];
+		ent_state.angles_z = ent->angles[2];
+		ent_state.modelindex = ent->model ? (uint16_t)((size_t)ent->model & 0xFFFF) : 0;
+		ent_state.frame = (uint16_t)ent->frame;
+		ent_state.colormap = ent->colormap ? ent->colormap[0] : 0;
+		ent_state.skin = (uint8_t)ent->skinnum;
+		ent_state.alpha = ent->alpha;
+		ent_state.scale = 128; // Default scale (128 = 1.0)
+		ent_state.effects = ent->effects;
 
-		PluQ_Entity_vec_push_start(&builder);
-		PluQ_Entity_origin_add(&builder, &origin);
-		PluQ_Entity_angles_add(&builder, &angles);
-
-		// Model ID: Use model pointer as ID (will be 0 if no model)
-		// Frontend will need to request model data via Resources channel
-		PluQ_Entity_model_id_add(&builder, ent->model ? (uint16_t)((size_t)ent->model & 0xFFFF) : 0);
-
-		PluQ_Entity_frame_add(&builder, (uint8_t)ent->frame);
-		PluQ_Entity_colormap_add(&builder, ent->colormap ? ent->colormap[0] : 0);
-		PluQ_Entity_skin_add(&builder, (uint8_t)ent->skinnum);
-		PluQ_Entity_effects_add(&builder, (uint32_t)ent->effects);
-		PluQ_Entity_alpha_add(&builder, ent->alpha / 255.0f); // Convert byte to float
-
-		PluQ_Entity_vec_push_end(&builder);
+		PLQ_entity_state_t_vec_push(&builder, &ent_state);
 	}
+	PLQ_entity_state_t_vec_ref_t entities_ref = PLQ_entity_state_t_vec_end(&builder);
+	PLQ_plq_frame_t_entities_add(&builder, entities_ref);
 
-	PluQ_Entity_vec_ref_t entities_ref = PluQ_Entity_vec_end(&builder);
-	PluQ_FrameUpdate_entities_add(&builder, entities_ref);
+	// Build dynamic lights vector
+	PLQ_dlight_t_vec_start(&builder);
+	for (int i = 0; i < MAX_DLIGHTS; i++)
+	{
+		dlight_t *dl = &cl_dlights[i];
+		if (dl->die < cl.time || dl->radius <= 0)
+			continue;
 
-	PluQ_FrameUpdate_ref_t frame_ref = PluQ_FrameUpdate_end(&builder);
+		PLQ_dlight_t_t dlight;
+		dlight.origin_x = dl->origin[0];
+		dlight.origin_y = dl->origin[1];
+		dlight.origin_z = dl->origin[2];
+		dlight.radius = dl->radius;
+		dlight.spawn = dl->spawn;
+		dlight.die = dl->die;
+		dlight.decay = dl->decay;
+		dlight.minlight = dl->minlight;
+		dlight.key = dl->key;
+		dlight.color_r = dl->color[0];
+		dlight.color_g = dl->color[1];
+		dlight.color_b = dl->color[2];
 
-	// Wrap in GameplayMessage
-	PluQ_GameplayEvent_union_ref_t event;
-	event.type = PluQ_GameplayEvent_FrameUpdate;
-	event.value = frame_ref;
+		PLQ_dlight_t_vec_push(&builder, &dlight);
+	}
+	PLQ_dlight_t_vec_ref_t dlights_ref = PLQ_dlight_t_vec_end(&builder);
+	PLQ_plq_frame_t_dlights_add(&builder, dlights_ref);
 
-	PluQ_GameplayMessage_create_as_root(&builder, event);
+	// Build color shifts vector
+	PLQ_cshift_t_vec_start(&builder);
+	for (int i = 0; i < NUM_CSHIFTS; i++)
+	{
+		PLQ_cshift_t_t cshift;
+		cshift.destcolor_r = cl.cshifts[i].destcolor[0];
+		cshift.destcolor_g = cl.cshifts[i].destcolor[1];
+		cshift.destcolor_b = cl.cshifts[i].destcolor[2];
+		cshift.percent = (float)cl.cshifts[i].percent;
+
+		PLQ_cshift_t_vec_push(&builder, &cshift);
+	}
+	PLQ_cshift_t_vec_ref_t cshifts_ref = PLQ_cshift_t_vec_end(&builder);
+	PLQ_plq_frame_t_cshifts_add(&builder, cshifts_ref);
+
+	PLQ_plq_frame_t_ref_t frame_ref = PLQ_plq_frame_t_end(&builder);
+
+	// Wrap in message
+	PLQ_plq_message_t_start_as_root(&builder);
+	PLQ_plq_message_t_type_add(&builder, PLQ_plq_msgtype_t_frame);
+	PLQ_plq_message_t_payload_plq_frame_t_add(&builder, frame_ref);
+	PLQ_plq_message_t_end_as_root(&builder);
 
 	// Finalize buffer
 	size_t size;
@@ -312,23 +369,24 @@ void PluQ_BroadcastWorldState(void)
 		PluQ_Backend_PublishFrame(buf, size);
 
 		// Update stats
-		pluq_stats_t stats;
-		PluQ_GetStats(&stats);
-		stats.frames_sent++;
-		stats.total_entities += cl_numvisedicts;
+		pluq_stats_t perf_stats;
+		PluQ_GetStats(&perf_stats);
+		perf_stats.frames_sent++;
+		perf_stats.total_entities += cl_numvisedicts;
 		double frame_time = Sys_DoubleTime() - start_time;
-		stats.total_time += frame_time;
-		if (frame_time > stats.max_frame_time)
-			stats.max_frame_time = frame_time;
-		if (stats.min_frame_time == 0.0 || frame_time < stats.min_frame_time)
-			stats.min_frame_time = frame_time;
-		PluQ_SetStats(&stats);
+		perf_stats.total_time += frame_time;
+		if (frame_time > perf_stats.max_frame_time)
+			perf_stats.max_frame_time = frame_time;
+		if (perf_stats.min_frame_time == 0.0 || frame_time < perf_stats.min_frame_time)
+			perf_stats.min_frame_time = frame_time;
+		PluQ_SetStats(&perf_stats);
 
 		// Free buffer
 		flatcc_builder_aligned_free(buf);
 	}
 
 	flatcc_builder_clear(&builder);
+	frame_counter++;
 }
 
 qboolean PluQ_HasPendingInput(void)
@@ -343,55 +401,68 @@ qboolean PluQ_HasPendingInput(void)
 
 void PluQ_ProcessInputCommands(void)
 {
-	void *buf;
-	size_t size;
+	nng_msg *msg;
 
 	if (!PluQ_Backend_IsEnabled())
 		return;
 
 	// Process all pending input commands
-	while (PluQ_Backend_ReceiveInput(&buf, &size))
+	while (PluQ_Backend_ReceiveInput(&msg))
 	{
-		// Parse FlatBuffer
-		PluQ_InputCommand_table_t cmd = PluQ_InputCommand_as_root(buf);
-		if (!cmd)
+		void *buf = nng_msg_body(msg);
+
+		// Parse FlatBuffer message
+		PLQ_plq_message_t_table_t plq_msg = PLQ_plq_message_t_as_root(buf);
+		if (!plq_msg)
 		{
-			Con_Printf("PluQ Backend: Failed to parse InputCommand\n");
-			nng_msg_free((nng_msg *)buf);
+			Con_Printf("PLQ Backend: Failed to parse input message\n");
+			nng_msg_free(msg);
 			continue;
 		}
 
-		// Store input data for PluQ_Move and PluQ_ApplyViewAngles
-		current_input.sequence = PluQ_InputCommand_sequence(cmd);
-		current_input.timestamp = PluQ_InputCommand_timestamp(cmd);
-		current_input.forward_move = PluQ_InputCommand_forward_move(cmd);
-		current_input.side_move = PluQ_InputCommand_side_move(cmd);
-		current_input.up_move = PluQ_InputCommand_up_move(cmd);
+		// Handle different message types
+		PLQ_plq_msgtype_t_enum_t msg_type = PLQ_plq_message_t_type(plq_msg);
 
-		// Get view angles (Vec3Angle format)
-		const PluQ_Vec3Angle_t *angles = PluQ_InputCommand_view_angles(cmd);
-		if (angles)
-			Vec3Angle_To_Quake(angles, current_input.view_angles);
-
-		current_input.buttons = PluQ_InputCommand_buttons(cmd);
-		current_input.impulse = (uint8_t)PluQ_InputCommand_impulse(cmd);
-
-		// Get command text (if any)
-		const char *cmd_text = PluQ_InputCommand_cmd_text(cmd);
-		if (cmd_text && cmd_text[0])
+		if (msg_type == PLQ_plq_msgtype_t_input)
 		{
-			Con_Printf("PluQ Backend: Received command: \"%s\"\n", cmd_text);
-			Cbuf_AddText(cmd_text);
-			Cbuf_AddText("\n");
-			q_strlcpy(current_input.cmd_text, cmd_text, sizeof(current_input.cmd_text));
+			// Get input payload - cast union value to input table
+			PLQ_plq_input_t_table_t input = (PLQ_plq_input_t_table_t)PLQ_plq_message_t_payload(plq_msg);
+			if (input)
+			{
+				// Get usercmd_t struct (binary compatible)
+				const PLQ_usercmd_t_t *cmd = PLQ_plq_input_t_cmd(input);
+				if (cmd)
+				{
+					current_input.view_angles[0] = cmd->viewangles_x;
+					current_input.view_angles[1] = cmd->viewangles_y;
+					current_input.view_angles[2] = cmd->viewangles_z;
+					current_input.forward_move = cmd->forwardmove;
+					current_input.side_move = cmd->sidemove;
+					current_input.up_move = cmd->upmove;
+				}
+				has_current_input = true;
+			}
+		}
+		else if (msg_type == PLQ_plq_msgtype_t_command)
+		{
+			// Get command payload
+			PLQ_plq_command_t_table_t cmd = (PLQ_plq_command_t_table_t)PLQ_plq_message_t_payload(plq_msg);
+			if (cmd)
+			{
+				const char *cmd_text = PLQ_plq_command_t_text(cmd);
+				if (cmd_text && cmd_text[0])
+				{
+					Con_Printf("PLQ Backend: Received command: \"%s\"\n", cmd_text);
+					Cbuf_AddText(cmd_text);
+					Cbuf_AddText("\n");
+				}
+			}
 		}
 		else
 		{
-			current_input.cmd_text[0] = 0;
+			Con_DPrintf("PLQ Backend: Unexpected message type %d on input channel\n", msg_type);
 		}
-
-		has_current_input = true;
-		nng_msg_free((nng_msg *)buf);
+		nng_msg_free(msg);
 	}
 }
 
@@ -432,28 +503,34 @@ void PluQ_ProcessResourceRequests(void)
 	if (rv != 0)
 	{
 		if (rv != NNG_EAGAIN)  // EAGAIN means no messages
-			Con_Printf("PluQ Backend: Failed to receive resource request: %s\n", nng_strerror(rv));
+			Con_Printf("PLQ Backend: Failed to receive resource request: %s\n", nng_strerror(rv));
 		return;
 	}
 
 	// Parse ResourceRequest
 	void *request_buf = nng_msg_body(msg);
-	size_t request_size = nng_msg_len(msg);
-
-	PluQ_ResourceRequest_table_t request = PluQ_ResourceRequest_as_root(request_buf);
-	if (!request)
+	PLQ_plq_message_t_table_t request_msg = PLQ_plq_message_t_as_root(request_buf);
+	if (!request_msg || PLQ_plq_message_t_type(request_msg) != PLQ_plq_msgtype_t_resourcereq)
 	{
-		Con_Printf("PluQ Backend: Invalid resource request\n");
+		Con_Printf("PLQ Backend: Invalid resource request message\n");
 		nng_msg_free(msg);
 		return;
 	}
 
-	PluQ_ResourceType_enum_t resource_type = PluQ_ResourceRequest_resource_type(request);
-	uint32_t resource_id = PluQ_ResourceRequest_resource_id(request);
-	const char *resource_name = PluQ_ResourceRequest_resource_name(request);
+	PLQ_plq_resourcereq_t_table_t request = (PLQ_plq_resourcereq_t_table_t)PLQ_plq_message_t_payload(request_msg);
+	if (!request)
+	{
+		Con_Printf("PLQ Backend: Resource request payload is null\n");
+		nng_msg_free(msg);
+		return;
+	}
 
-	Con_DPrintf("PluQ Backend: Resource request - type=%d, id=%u, name=%s\n",
-		resource_type, resource_id, resource_name ? resource_name : "(null)");
+	PLQ_plq_resource_type_t_enum_t resource_type = PLQ_plq_resourcereq_t_type(request);
+	uint16_t resource_index = PLQ_plq_resourcereq_t_index(request);
+	const char *resource_name = PLQ_plq_resourcereq_t_name(request);
+
+	Con_DPrintf("PLQ Backend: Resource request - type=%d, index=%u, name=%s\n",
+		resource_type, resource_index, resource_name ? resource_name : "(null)");
 
 	// Free request message
 	nng_msg_free(msg);
@@ -462,13 +539,16 @@ void PluQ_ProcessResourceRequests(void)
 	flatcc_builder_t builder;
 	flatcc_builder_init(&builder);
 
-	PluQ_ResourceResponse_start(&builder);
-	PluQ_ResourceResponse_resource_id_add(&builder, resource_id);
+	PLQ_plq_resourceresp_t_start(&builder);
+	PLQ_plq_resourceresp_t_type_add(&builder, resource_type);
+	PLQ_plq_resourceresp_t_index_add(&builder, resource_index);
+	if (resource_name)
+		PLQ_plq_resourceresp_t_name_create_str(&builder, resource_name);
 
 	// Handle different resource types
 	switch (resource_type)
 	{
-	case PluQ_ResourceType_Texture:
+	case PLQ_plq_resource_type_t_texture:
 	{
 		// Load texture from WAD
 		if (resource_name && *resource_name)
@@ -483,47 +563,38 @@ void PluQ_ProcessResourceRequests(void)
 				int width = LittleLong(pic->width);
 				int height = LittleLong(pic->height);
 
-				// Build Texture table
-				flatbuffers_uint8_vec_ref_t pixels_ref = flatbuffers_uint8_vec_create(
-					&builder, pic->data, width * height);
+				// Add raw pixel data
+				PLQ_plq_resourceresp_t_data_create(&builder, pic->data, width * height);
 
-				PluQ_Texture_start(&builder);
-				PluQ_Texture_id_add(&builder, resource_id);
-				PluQ_Texture_name_add(&builder, flatbuffers_string_create_str(&builder, resource_name));
-				PluQ_Texture_width_add(&builder, (uint16_t)width);
-				PluQ_Texture_height_add(&builder, (uint16_t)height);
-				PluQ_Texture_format_add(&builder, 2);  // Indexed (palette-based)
-				PluQ_Texture_pixels_add(&builder, pixels_ref);
-				PluQ_Texture_ref_t texture_ref = PluQ_Texture_end(&builder);
-
-				// Add to response
-				PluQ_ResourceResponse_data_Texture_add(&builder, texture_ref);
-
-				Con_DPrintf("PluQ Backend: Sending texture '%s' (%dx%d, %d bytes)\n",
+				Con_DPrintf("PLQ Backend: Sending texture '%s' (%dx%d, %d bytes)\n",
 					resource_name, width, height, width * height);
 			}
 			else
 			{
-				Con_Printf("PluQ Backend: Texture '%s' not found\n", resource_name);
+				Con_Printf("PLQ Backend: Texture '%s' not found\n", resource_name);
 			}
 		}
 		break;
 	}
 
-	case PluQ_ResourceType_Model:
+	case PLQ_plq_resource_type_t_model:
 	{
-		Con_DPrintf("PluQ Backend: Model streaming not yet implemented\n");
-		// TODO: Load model data and stream it
+		Con_DPrintf("PLQ Backend: Model streaming not yet implemented\n");
 		break;
 	}
 
 	default:
-		Con_Printf("PluQ Backend: Unsupported resource type %d\n", resource_type);
+		Con_Printf("PLQ Backend: Unsupported resource type %d\n", resource_type);
 		break;
 	}
 
-	PluQ_ResourceResponse_ref_t response_ref = PluQ_ResourceResponse_end(&builder);
-	PluQ_ResourceResponse_end_as_root(&builder);
+	PLQ_plq_resourceresp_t_ref_t response_ref = PLQ_plq_resourceresp_t_end(&builder);
+
+	// Wrap in message
+	PLQ_plq_message_t_start_as_root(&builder);
+	PLQ_plq_message_t_type_add(&builder, PLQ_plq_msgtype_t_resourceresp);
+	PLQ_plq_message_t_payload_plq_resourceresp_t_add(&builder, response_ref);
+	PLQ_plq_message_t_end_as_root(&builder);
 
 	// Finalize and send response
 	size_t response_size;

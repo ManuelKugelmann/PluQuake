@@ -50,3 +50,4 @@ cd tests && make -j4                  # Build tests
 ## CLAUDE_Docs Folder
 
 Place temporary dev coordination files (status, design notes, progress) in `CLAUDE_Docs/`.
+- Do not care for old pluq code, we are in initial development and anything can be changed. No backward compatibility or holding with existing pluq patterns. only the vanilla quake source should be kept as is as much as possible and serve as an design template.

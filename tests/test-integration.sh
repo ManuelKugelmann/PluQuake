@@ -34,30 +34,34 @@ if [ -d "../Quake/dependencies/lib" ]; then
     export LD_LIBRARY_PATH="../Quake/dependencies/lib:$LD_LIBRARY_PATH"
 fi
 
-# Temp file for frontend output
-OUTPUT_FILE=$(mktemp)
-trap "rm -f $OUTPUT_FILE; kill $BACKEND_PID $FRONTEND_PID 2>/dev/null" EXIT
+# Separate log files for backend and frontend
+BACKEND_LOG=$(mktemp)
+FRONTEND_LOG=$(mktemp)
+trap "rm -f $BACKEND_LOG $FRONTEND_LOG; kill $BACKEND_PID $FRONTEND_PID 2>/dev/null" EXIT
 
 echo "Starting headless backend..."
-$BACKEND -basedir . -headless -pluq +map start > /dev/null 2>&1 &
+$BACKEND -basedir . -headless -pluq +map start > "$BACKEND_LOG" 2>&1 &
 BACKEND_PID=$!
 
 sleep 3
 
 if ! kill -0 $BACKEND_PID 2>/dev/null; then
     echo "FAIL: Backend failed to start"
+    echo ""
+    echo "Backend log:"
+    cat "$BACKEND_LOG"
     exit 1
 fi
 echo "Backend running (PID $BACKEND_PID)"
 
 echo "Starting headless test frontend (5 second test)..."
-timeout 5 $FRONTEND -basedir . > "$OUTPUT_FILE" 2>&1 &
+timeout 5 $FRONTEND -basedir . > "$FRONTEND_LOG" 2>&1 &
 FRONTEND_PID=$!
 
 sleep 5
 
 # Count received frames
-FRAME_COUNT=$(grep -c "World state" "$OUTPUT_FILE" 2>/dev/null || echo "0")
+FRAME_COUNT=$(grep -c "World state" "$FRONTEND_LOG" 2>/dev/null || echo "0")
 
 echo ""
 echo "=== Results ==="
@@ -69,7 +73,10 @@ if [ "$FRAME_COUNT" -gt 0 ]; then
 else
     echo "FAIL: No frames received"
     echo ""
-    echo "Frontend output:"
-    cat "$OUTPUT_FILE"
+    echo "=== Backend log ==="
+    cat "$BACKEND_LOG"
+    echo ""
+    echo "=== Frontend log ==="
+    cat "$FRONTEND_LOG"
     exit 1
 fi

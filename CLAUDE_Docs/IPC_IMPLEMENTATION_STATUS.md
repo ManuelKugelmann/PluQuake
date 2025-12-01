@@ -223,6 +223,30 @@ pluq_frontend.c  - 355 lines  (frontend: REQ, SUB, PUSH)
 
 ---
 
+## Known Issues and Fixes
+
+### 1. Makefile Include Ordering (Fixed 2024-12)
+
+**Issue:** Test frontend wasn't linking with nng library, causing IPC to silently fail.
+
+**Root Cause:** In `Makefile.pluq_test_frontend`, `HOST_OS` was defined AFTER including `Makefile.deps`. This meant `PLUQ_LIBS` wasn't being set correctly because `Makefile.deps` needs `HOST_OS` to be defined to select the correct library paths.
+
+**Fix:** Move `HOST_OS ?= $(shell uname|sed -e s/_.*//|tr '[:upper:]' '[:lower:]')` BEFORE the `-include Makefile.deps` line.
+
+### 2. Stdin Blocking Main Loop (Fixed 2024-12)
+
+**Issue:** Test frontend would only process one frame, then appear to hang.
+
+**Root Cause:** The `Sys_CheckStdinAvailable()` function or stdin reading was blocking the main loop even with non-blocking flag set.
+
+**Fix:** Disabled stdin reading with `#if 0` block in `main_pluq_test_frontend.c`. The test frontend now successfully receives frames from the backend. Interactive stdin input can be re-enabled later with a proper async I/O approach.
+
+### 3. Build Script Auto-Copy (Added 2024-12)
+
+**Feature:** `build-pluq.sh` now automatically copies built binaries to the `tests/` folder after successful compilation.
+
+---
+
 ## Commits
 
 1. `ad55ce9` - Split PluQ IPC implementation into 3 separate files

@@ -56,9 +56,20 @@ void Host_Frame_TestFrontend(double time)
 	static char input_line[1024];
 	static int input_pos = 0;
 	static uint32_t frame_count = 0;
+	static double last_status_time = 0;
+	static qboolean connected = false;
 
 	frame_count++;
 
+	// Debug first few frames
+	if (frame_count <= 3)
+	{
+		printf("[HOST_FRAME] Frame %u - starting\n", frame_count);
+		fflush(stdout);
+	}
+
+	// Stdin input disabled - was blocking the main loop
+#if 0
 	// Read stdin commands
 	while (Sys_CheckStdinAvailable())
 	{
@@ -70,7 +81,8 @@ void Host_Frame_TestFrontend(double time)
 				if (input_pos > 0)
 				{
 					input_line[input_pos] = 0;
-					printf("[Test Frontend] → Backend: %s\n", input_line);
+					printf("[Frontend] → Backend: %s\n", input_line);
+					fflush(stdout);
 
 					// Forward to backend
 					PluQ_Frontend_SendCommand(input_line);
@@ -88,16 +100,42 @@ void Host_Frame_TestFrontend(double time)
 			}
 		}
 	}
+#endif
 
 	Cbuf_Execute();
 
-	// Receive world state
-	if (PluQ_Frontend_ReceiveWorldState())
+	// Receive world state from backend
+	qboolean got_frame = PluQ_Frontend_ReceiveWorldState();
+
+	if (got_frame)
 	{
-		if (frame_count % 60 == 0)
-			printf("[Test Frontend] ← Backend: World state (frame %u)\n", frame_count);
+		uint32_t received = PluQ_Frontend_GetFramesReceived();
+
+		// Log connection establishment
+		if (!connected)
+		{
+			printf("[Frontend] Connected to backend! First frame received.\n");
+			fflush(stdout);
+			connected = true;
+		}
+
+		// Periodic status (every 60 frames = ~1 second at 60fps)
+		if (received % 60 == 0)
+		{
+			printf("[Frontend] Receiving: %u frames (frame %u)\n", received, frame_count);
+			fflush(stdout);
+		}
 
 		PluQ_Frontend_ApplyReceivedState();
+	}
+
+	// Status output while waiting for connection
+	double now = Sys_DoubleTime();
+	if (!connected && now > last_status_time + 2.0)
+	{
+		printf("[Frontend] Waiting for backend... (poll %u)\n", frame_count);
+		fflush(stdout);
+		last_status_time = now;
 	}
 }
 
@@ -114,6 +152,9 @@ int main(int argc, char *argv[])
 	COM_InitArgv(parms.argc, parms.argv);
 
 	Sys_Init();
+
+	// Set stdout to unbuffered for immediate output
+	setvbuf(stdout, NULL, _IONBF, 0);
 
 	printf("======================================\n");
 	printf("PluQ Test Frontend (Headless)\n");
@@ -136,6 +177,9 @@ int main(int argc, char *argv[])
 
 	oldtime = Sys_DoubleTime();
 
+	printf("[Frontend] Entering main loop (waiting for backend)...\n");
+	fflush(stdout);
+
 	// Main loop - simplified version of Host_Frame_PluQ_Frontend
 	while (1)
 	{
@@ -149,7 +193,6 @@ int main(int argc, char *argv[])
 		}
 
 		Host_Frame_TestFrontend(time);
-
 		oldtime = newtime;
 	}
 

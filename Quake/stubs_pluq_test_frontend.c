@@ -436,3 +436,6 @@ qpic_t *pic_ovr = NULL;
 // SIMD flag
 qboolean use_simd = false;
 
+// Headless mode flag (frontend is never headless - it's a renderer)
+qboolean isHeadless = false;
+

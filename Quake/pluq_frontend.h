@@ -10,7 +10,7 @@ of the License, or (at your option) any later version.
 #ifndef _PLUQ_FRONTEND_H_
 #define _PLUQ_FRONTEND_H_
 
-// pluq_frontend.h -- PluQ Frontend IPC Code
+// pluq_frontend.h -- PLQ Frontend IPC Code
 // Frontend binary only - receives world state and sends input
 
 #include "quakedef.h"
@@ -20,7 +20,7 @@ of the License, or (at your option) any later version.
 // FRONTEND INITIALIZATION / SHUTDOWN
 // ============================================================================
 
-// Initialize PluQ frontend sockets (REQ, SUB, PUSH)
+// Initialize PLQ frontend sockets (REQ, SUB, PUSH)
 qboolean PluQ_Frontend_Init(void);
 
 // Shutdown frontend sockets
@@ -31,14 +31,14 @@ void PluQ_Frontend_Shutdown(void);
 // ============================================================================
 
 // Resources channel (REQ/REP)
-qboolean PluQ_Frontend_RequestResource(PluQ_ResourceType_enum_t resource_type,
-                                        uint32_t resource_id,
+qboolean PluQ_Frontend_RequestResource(PLQ_plq_resource_type_t_enum_t resource_type,
+                                        uint16_t resource_index,
                                         const char *resource_name,
                                         void **data_out,
                                         size_t *size_out);
 
 // Gameplay channel (PUB/SUB)
-qboolean PluQ_Frontend_ReceiveFrame(void **flatbuf_out, size_t *size_out);
+qboolean PluQ_Frontend_ReceiveFrame(nng_msg **msg_out);
 
 // Input channel (PUSH/PULL)
 qboolean PluQ_Frontend_SendInput(const void *flatbuf, size_t size);
@@ -64,5 +64,8 @@ void PluQ_Frontend_ApplyViewAngles(void);
 
 // Process move command (frontend-specific)
 void PluQ_Frontend_Move(usercmd_t *cmd);
+
+// Get number of frames received (for testing)
+uint32_t PluQ_Frontend_GetFramesReceived(void);
 
 #endif // _PLUQ_FRONTEND_H_
