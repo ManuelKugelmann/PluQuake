@@ -139,15 +139,13 @@ void Host_Frame_TestFrontend(double time)
 	}
 
 	// Read commands from stdin (non-blocking)
+	// Commands are forwarded to backend automatically via cmd.c when PLUQ_FRONTEND is defined
 	while (Input_ReadStdin(input_line, sizeof(input_line)))
 	{
 		printf("[Frontend] → Backend: %s\n", input_line);
 		fflush(stdout);
 
-		// Forward to backend via IPC
-		PluQ_Frontend_SendCommand(input_line);
-
-		// Also execute locally (for local commands like 'quit')
+		// Add to command buffer - cmd.c will forward to backend via IPC
 		Cbuf_AddText(input_line);
 		Cbuf_AddText("\n");
 	}

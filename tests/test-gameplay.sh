@@ -198,22 +198,30 @@ fi
 # Check specific commands
 echo ""
 echo "=== Verification ==="
-SKILL_CMD=$(grep -c "skill 1" "$BACKEND_FULL_LOG" 2>/dev/null || echo "0")
-MAP_CMD=$(grep -c "map e1m1" "$BACKEND_FULL_LOG" 2>/dev/null || echo "0")
+SKILL_CMD=$(grep -c '"skill 1"' "$BACKEND_FULL_LOG" 2>/dev/null || echo "0")
+MAP_CMD=$(grep -c '"map e1m1"' "$BACKEND_FULL_LOG" 2>/dev/null || echo "0")
 GOD_CMD=$(grep -c '"god"' "$BACKEND_FULL_LOG" 2>/dev/null || echo "0")
-SLIPGATE=$(grep -c "Slipgate Complex\|e1m1" "$BACKEND_FULL_LOG" 2>/dev/null || echo "0")
-GOD_MODE=$(grep -c "god mode" "$BACKEND_FULL_LOG" 2>/dev/null || echo "0")
-GIVE_NAILS=$(grep -c "give nails" "$BACKEND_FULL_LOG" 2>/dev/null || echo "0")
-GIVE_HEALTH=$(grep -c "give health" "$BACKEND_FULL_LOG" 2>/dev/null || echo "0")
+SLIPGATE=$(grep -c "Slipgate Complex" "$BACKEND_FULL_LOG" 2>/dev/null || echo "0")
+GOD_MODE_ON=$(grep -c "godmode ON" "$BACKEND_FULL_LOG" 2>/dev/null || echo "0")
+GIVE_NAILS=$(grep -c '"give nails' "$BACKEND_FULL_LOG" 2>/dev/null || echo "0")
+GIVE_HEALTH=$(grep -c '"give health' "$BACKEND_FULL_LOG" 2>/dev/null || echo "0")
 
-echo "Commands found in backend log:"
-echo "  - 'skill 1': $SKILL_CMD"
-echo "  - 'map e1m1': $MAP_CMD"
-echo "  - 'god': $GOD_CMD"
-echo "  - 'give nails': $GIVE_NAILS"
-echo "  - 'give health': $GIVE_HEALTH"
-echo "  - Map loaded (Slipgate): $SLIPGATE"
-echo "  - God mode activated: $GOD_MODE"
+echo "Commands received by backend:"
+echo "  - 'skill 1': $SKILL_CMD (expected: 1)"
+echo "  - 'map e1m1': $MAP_CMD (expected: 1)"
+echo "  - 'god': $GOD_CMD (expected: 1)"
+echo "  - 'give nails': $GIVE_NAILS (expected: 1)"
+echo "  - 'give health': $GIVE_HEALTH (expected: 1)"
+echo ""
+echo "Game state:"
+echo "  - Map loaded (Slipgate Complex): $SLIPGATE"
+echo "  - God mode activated: $GOD_MODE_ON"
+
+# Check for duplicates (should all be 1)
+DUPLICATES=0
+if [ "$SKILL_CMD" -gt 1 ]; then echo "  WARNING: skill command duplicated!"; DUPLICATES=1; fi
+if [ "$MAP_CMD" -gt 1 ]; then echo "  WARNING: map command duplicated!"; DUPLICATES=1; fi
+if [ "$GOD_CMD" -gt 1 ]; then echo "  WARNING: god command duplicated!"; DUPLICATES=1; fi
 
 # Frontend stats
 FRAMES_RECEIVED=$(grep -c "Receiving:" "$FRONTEND_LOG" 2>/dev/null || echo "0")
@@ -230,13 +238,26 @@ grep "→ Backend:" "$FRONTEND_LOG" | head -20
 
 # Determine pass/fail
 echo ""
-if [ "$SKILL_CMD" -gt 0 ] && [ "$MAP_CMD" -gt 0 ]; then
+PASS=1
+FAIL_REASON=""
+
+if [ "$SKILL_CMD" -lt 1 ]; then PASS=0; FAIL_REASON="skill command not received"; fi
+if [ "$MAP_CMD" -lt 1 ]; then PASS=0; FAIL_REASON="map command not received"; fi
+if [ "$SLIPGATE" -lt 1 ]; then PASS=0; FAIL_REASON="map did not load"; fi
+if [ "$GOD_MODE_ON" -lt 1 ]; then PASS=0; FAIL_REASON="god mode not activated"; fi
+if [ "$DUPLICATES" -gt 0 ]; then PASS=0; FAIL_REASON="commands duplicated"; fi
+
+if [ "$PASS" -eq 1 ]; then
     echo "=========================================="
-    echo "=== PASS: Commands forwarded to backend ==="
+    echo "=== PASS: Extended gameplay test OK! ===="
     echo "=========================================="
+    echo "  ✓ Commands forwarded (no duplicates)"
+    echo "  ✓ Map loaded successfully"
+    echo "  ✓ God mode activated"
+    echo "  ✓ Give commands processed"
     exit 0
 else
-    echo "=== FAIL: Commands not received by backend ==="
+    echo "=== FAIL: $FAIL_REASON ==="
     echo ""
     echo "Last 50 lines of backend log:"
     tail -50 "$BACKEND_FULL_LOG"
