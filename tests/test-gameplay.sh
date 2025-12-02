@@ -140,22 +140,29 @@ echo "   Movement commands sent"
 echo ""
 echo "Phase 5: Testing game commands"
 echo "=============================="
-echo "7. Sending 'god' (god mode)..."
+echo "7. Waiting for spawn to complete..."
+sleep 2
+
+echo "8. Sending 'god' (god mode)..."
 echo "god" >&3
 sleep 1
 
-echo "8. Sending 'impulse 9' (all weapons)..."
-echo "impulse 9" >&3
+echo "9. Sending 'give nails 100' (give ammo)..."
+echo "give nails 100" >&3
 sleep 1
 
-echo "9. More movement..."
+echo "10. Sending 'give health 200' (give health)..."
+echo "give health 200" >&3
+sleep 1
+
+echo "11. More movement..."
 echo "+forward" >&3
 echo "+moveleft" >&3
 sleep 2
 echo "-forward" >&3
 echo "-moveleft" >&3
 
-echo "10. End marker..."
+echo "12. End marker..."
 echo "echo === PLUQ_TEST_COMMANDS_END ===" >&3
 
 # Let simulation run
@@ -196,11 +203,15 @@ MAP_CMD=$(grep -c "map e1m1" "$BACKEND_FULL_LOG" 2>/dev/null || echo "0")
 GOD_CMD=$(grep -c '"god"' "$BACKEND_FULL_LOG" 2>/dev/null || echo "0")
 SLIPGATE=$(grep -c "Slipgate Complex\|e1m1" "$BACKEND_FULL_LOG" 2>/dev/null || echo "0")
 GOD_MODE=$(grep -c "god mode" "$BACKEND_FULL_LOG" 2>/dev/null || echo "0")
+GIVE_NAILS=$(grep -c "give nails" "$BACKEND_FULL_LOG" 2>/dev/null || echo "0")
+GIVE_HEALTH=$(grep -c "give health" "$BACKEND_FULL_LOG" 2>/dev/null || echo "0")
 
 echo "Commands found in backend log:"
 echo "  - 'skill 1': $SKILL_CMD"
 echo "  - 'map e1m1': $MAP_CMD"
 echo "  - 'god': $GOD_CMD"
+echo "  - 'give nails': $GIVE_NAILS"
+echo "  - 'give health': $GIVE_HEALTH"
 echo "  - Map loaded (Slipgate): $SLIPGATE"
 echo "  - God mode activated: $GOD_MODE"
 
