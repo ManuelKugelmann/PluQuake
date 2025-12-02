@@ -16,6 +16,8 @@ of the License, or (at your option) any later version.
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
+#include <errno.h>
+#include <poll.h>
 
 // Import from host_pluq_frontend.c
 extern void Host_Init_PluQ_Frontend(void);
@@ -25,23 +27,91 @@ extern void Host_Shutdown_PluQ_Frontend(void);
 
 static quakeparms_t parms;
 
+// Input state
+static qboolean stdin_eof = false;
+
 /*
 ==================
-Sys_CheckStdinAvailable
+Input_CheckStdin
+
+Check if stdin has data available (non-blocking)
+Uses poll() which properly distinguishes data vs EOF
 ==================
 */
-static qboolean Sys_CheckStdinAvailable(void)
+static qboolean Input_CheckStdin(void)
 {
-	fd_set readfds;
-	struct timeval tv;
+	struct pollfd pfd;
 
-	FD_ZERO(&readfds);
-	FD_SET(STDIN_FILENO, &readfds);
+	if (stdin_eof)
+		return false;
 
-	tv.tv_sec = 0;
-	tv.tv_usec = 0;
+	pfd.fd = STDIN_FILENO;
+	pfd.events = POLLIN;
+	pfd.revents = 0;
 
-	return select(STDIN_FILENO + 1, &readfds, NULL, NULL, &tv) > 0;
+	if (poll(&pfd, 1, 0) <= 0)
+		return false;
+
+	// POLLIN set means data OR EOF - we need to try reading to know which
+	return (pfd.revents & POLLIN) != 0;
+}
+
+/*
+==================
+Input_ReadStdin
+
+Read a line from stdin (non-blocking)
+Returns true if a complete line was read
+==================
+*/
+static qboolean Input_ReadStdin(char *buffer, size_t bufsize)
+{
+	static char line_buf[1024];
+	static int line_pos = 0;
+	char c;
+	ssize_t n;
+
+	if (stdin_eof)
+		return false;
+
+	while (Input_CheckStdin())
+	{
+		n = read(STDIN_FILENO, &c, 1);
+
+		if (n == 0)
+		{
+			// EOF - stdin closed, stop trying to read
+			stdin_eof = true;
+			return false;
+		}
+		else if (n < 0)
+		{
+			if (errno == EAGAIN || errno == EWOULDBLOCK)
+				return false; // No data right now
+			// Other error - treat as EOF
+			stdin_eof = true;
+			return false;
+		}
+
+		// Got a character
+		if (c == '\n' || c == '\r')
+		{
+			if (line_pos > 0)
+			{
+				line_buf[line_pos] = '\0';
+				strncpy(buffer, line_buf, bufsize - 1);
+				buffer[bufsize - 1] = '\0';
+				line_pos = 0;
+				return true;
+			}
+		}
+		else if (line_pos < (int)sizeof(line_buf) - 1)
+		{
+			line_buf[line_pos++] = c;
+		}
+	}
+
+	return false;
 }
 
 /*
@@ -68,39 +138,19 @@ void Host_Frame_TestFrontend(double time)
 		fflush(stdout);
 	}
 
-	// Stdin input disabled - was blocking the main loop
-#if 0
-	// Read stdin commands
-	while (Sys_CheckStdinAvailable())
+	// Read commands from stdin (non-blocking)
+	while (Input_ReadStdin(input_line, sizeof(input_line)))
 	{
-		char c;
-		if (read(STDIN_FILENO, &c, 1) == 1)
-		{
-			if (c == '\n' || c == '\r')
-			{
-				if (input_pos > 0)
-				{
-					input_line[input_pos] = 0;
-					printf("[Frontend] → Backend: %s\n", input_line);
-					fflush(stdout);
+		printf("[Frontend] → Backend: %s\n", input_line);
+		fflush(stdout);
 
-					// Forward to backend
-					PluQ_Frontend_SendCommand(input_line);
+		// Forward to backend via IPC
+		PluQ_Frontend_SendCommand(input_line);
 
-					// Also execute locally
-					Cbuf_AddText(input_line);
-					Cbuf_AddText("\n");
-
-					input_pos = 0;
-				}
-			}
-			else if (input_pos < (int)sizeof(input_line) - 1)
-			{
-				input_line[input_pos++] = c;
-			}
-		}
+		// Also execute locally (for local commands like 'quit')
+		Cbuf_AddText(input_line);
+		Cbuf_AddText("\n");
 	}
-#endif
 
 	Cbuf_Execute();
 
@@ -169,11 +219,11 @@ int main(int argc, char *argv[])
 	// Reuse existing frontend initialization
 	Host_Init_PluQ_Frontend();
 
-	printf("\n[Type commands and press Enter]\n");
-	printf("Examples: map e1m1, skill 2, god\n\n");
-
-	// Set stdin to non-blocking
+	// Set stdin to non-blocking for command input
 	fcntl(STDIN_FILENO, F_SETFL, fcntl(STDIN_FILENO, F_GETFL) | O_NONBLOCK);
+
+	printf("\n[Type commands, or pipe: echo 'map e1m1' | %s]\n", argv[0]);
+	printf("Examples: status, map e1m1, god\n\n");
 
 	oldtime = Sys_DoubleTime();
 

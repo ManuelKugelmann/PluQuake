@@ -4,7 +4,8 @@
 
 set -e
 
-SCRIPT_DIR="$(dirname "$0")"
+# Get absolute path to script directory (before any cd)
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 QUAKE_DIR="$SCRIPT_DIR/Quake"
 TESTS_DIR="$SCRIPT_DIR/tests"
 
