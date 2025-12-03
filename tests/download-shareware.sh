@@ -1,6 +1,7 @@
 #!/bin/bash
 # Download Quake shareware pak0.pak for testing
-# This is the freely distributable shareware version
+# Source: https://github.com/pweil-/origin-quake (direct pak0.pak)
+# This is the freely distributable shareware version (Episode 1)
 
 set -e
 cd "$(dirname "$0")"
@@ -10,37 +11,36 @@ if [ -f "id1/pak0.pak" ]; then
     exit 0
 fi
 
-echo "Downloading Quake shareware..."
+echo "Downloading Quake shareware pak0.pak..."
 
 # Create id1 directory
 mkdir -p id1
 
-# Download from archive.org (official shareware distribution)
-SHAREWARE_URL="https://archive.org/download/quake-shareware-1.06/quake106.zip"
+# Download pak0.pak directly from origin-quake repository
+PAK_URL="https://github.com/pweil-/origin-quake/raw/master/id1/pak0.pak"
 
-# Try wget first, then curl
-if command -v wget &> /dev/null; then
-    wget -q -O quake106.zip "$SHAREWARE_URL"
-elif command -v curl &> /dev/null; then
-    curl -sL -o quake106.zip "$SHAREWARE_URL"
+# Try curl first (follows redirects with -L), then wget
+if command -v curl &> /dev/null; then
+    curl -sL -o id1/pak0.pak "$PAK_URL"
+elif command -v wget &> /dev/null; then
+    wget -q -O id1/pak0.pak "$PAK_URL"
 else
-    echo "ERROR: Neither wget nor curl found"
+    echo "ERROR: Neither curl nor wget found"
     exit 1
 fi
 
-# Extract pak0.pak from the zip
-# The shareware zip contains ID1/PAK0.PAK (uppercase)
-if command -v unzip &> /dev/null; then
-    unzip -q -o quake106.zip "ID1/PAK0.PAK" -d .
-    mv ID1/PAK0.PAK id1/pak0.pak
-    rmdir ID1
-else
-    echo "ERROR: unzip not found"
+# Verify download (should be ~18MB)
+if [ ! -f "id1/pak0.pak" ]; then
+    echo "ERROR: Download failed"
     exit 1
 fi
 
-# Cleanup
-rm -f quake106.zip
+FILESIZE=$(stat -c%s "id1/pak0.pak" 2>/dev/null || stat -f%z "id1/pak0.pak" 2>/dev/null || echo "0")
+if [ "$FILESIZE" -lt 1000000 ]; then
+    echo "ERROR: Downloaded file too small ($FILESIZE bytes), download may have failed"
+    rm -f id1/pak0.pak
+    exit 1
+fi
 
 echo "Quake shareware downloaded successfully"
 ls -la id1/pak0.pak
