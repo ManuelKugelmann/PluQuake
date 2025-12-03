@@ -1,40 +1,46 @@
 #!/bin/bash
-# Download Quake shareware for testing PluQ system
+# Download Quake shareware pak0.pak for testing
+# This is the freely distributable shareware version
 
 set -e
-
 cd "$(dirname "$0")"
 
-echo "=== Downloading Quake Shareware ==="
-echo ""
-
-# Create id1 directory if it doesn't exist
-mkdir -p id1
-
-# Check if pak0.pak already exists
 if [ -f "id1/pak0.pak" ]; then
-    echo "✅ pak0.pak already exists"
-    ls -lh id1/pak0.pak
+    echo "Quake shareware already downloaded"
     exit 0
 fi
 
-echo "Downloading Quake pak files from archive.org (~23 MB)..."
-echo "(Note: dosgamesarchive.com would be preferred but doesn't work through proxy)"
-wget -q --show-progress -O /tmp/quake-paks.zip \
-    "https://archive.org/download/quake_pak_202306/quake_pak.zip"
+echo "Downloading Quake shareware..."
 
-echo ""
-echo "Extracting pak0.pak..."
-unzip -j /tmp/quake-paks.zip "pak0.pak" -d id1/
+# Create id1 directory
+mkdir -p id1
 
-echo ""
-echo "Cleaning up..."
-rm /tmp/quake-paks.zip
+# Download from archive.org (official shareware distribution)
+SHAREWARE_URL="https://archive.org/download/quake-shareware-1.06/quake106.zip"
 
-echo ""
-echo "✅ Quake shareware installed successfully!"
-ls -lh id1/pak0.pak
-echo ""
-echo "You can now run the test scripts:"
-echo "  ./test-pluq.sh"
-echo "  ./test-backend.sh"
+# Try wget first, then curl
+if command -v wget &> /dev/null; then
+    wget -q -O quake106.zip "$SHAREWARE_URL"
+elif command -v curl &> /dev/null; then
+    curl -sL -o quake106.zip "$SHAREWARE_URL"
+else
+    echo "ERROR: Neither wget nor curl found"
+    exit 1
+fi
+
+# Extract pak0.pak from the zip
+# The shareware zip contains ID1/PAK0.PAK (uppercase)
+if command -v unzip &> /dev/null; then
+    unzip -q -o quake106.zip "ID1/PAK0.PAK" -d .
+    mv ID1/PAK0.PAK id1/pak0.pak
+    rmdir ID1
+else
+    echo "ERROR: unzip not found"
+    exit 1
+fi
+
+# Cleanup
+rm -f quake106.zip
+
+echo "Quake shareware downloaded successfully"
+ls -la id1/pak0.pak

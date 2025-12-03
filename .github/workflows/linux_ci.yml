@@ -12,5 +12,18 @@ jobs:
     - uses: actions/checkout@v4
     - name: Install Build Tools
       run: sudo apt-get update && sudo apt-get install -y cmake gcc g++ make git libcurl4-openssl-dev libsdl2-dev libvorbis-dev libmpg123-dev
-    - name: Build Ironwail (using prebuilt Linux/pluq/ libraries)
+    - name: Build Ironwail Backend (using prebuilt Linux/pluq/ libraries)
       run: make --jobs=3 --keep-going --directory=Quake CC=${{ matrix.compiler }}
+    - name: Build PluQ Test Frontend
+      run: make --jobs=3 --directory=Quake -f Makefile.pluq_test_frontend CC=${{ matrix.compiler }}
+    - name: Copy binaries to tests folder
+      run: |
+        cp Quake/ironwail tests/
+        cp Quake/ironwail-pluq-test-frontend tests/
+    - name: Download Quake Shareware
+      run: cd tests && ./download-shareware.sh
+    - name: Run IPC Gameplay Test
+      run: |
+        cd tests
+        export LD_LIBRARY_PATH="../Quake/dependencies/lib:$LD_LIBRARY_PATH"
+        bash test-gameplay.sh
